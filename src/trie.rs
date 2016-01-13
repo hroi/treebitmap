@@ -140,9 +140,11 @@ impl fmt::Debug for TrieNode {
             selector >>= 1;
         }
 
+        let bitmap_string = format!("{:016b} {:016b}", self.bitmap >> 16, self.bitmap & EXT_MASK);
+
         if self.is_endnode() {
             return f.debug_struct("EndNode")
-                .field("bitmap", &format!("{:032b}", self.bitmap))
+                .field("bitmap", &bitmap_string)
                 .field("internal", &int_nodes)
                 .field("children", &child_nodes)
                 .field("child_ptr", &self.child_ptr)
@@ -153,7 +155,7 @@ impl fmt::Debug for TrieNode {
             return f.debug_struct("BlankNode").finish();
         }
         f.debug_struct("InternalNode")
-            .field("bitmap", &format!("{:032b}", self.bitmap))
+            .field("bitmap", &bitmap_string)
             .field("internal", &int_nodes)
             .field("children", &child_nodes)
             .field("child_ptr", &self.child_ptr)
