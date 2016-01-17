@@ -1,5 +1,4 @@
 use std::fmt;
-//use nibbles::{Nibbles};
 use allocator_raw::AllocatorHandle;
 
 pub const INT_MASK: u32 = 0xffff0000;
@@ -38,7 +37,7 @@ static INTERNAL_LOOKUP_TABLE: Table = [
 
 pub const MSB: u32 = 1<<31;
 
-const MATCH_MASKS: [u32; 16] = [
+static MATCH_MASKS: [u32; 16] = [
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 16, // 0000
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 17, // 0001
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 18, // 0010
@@ -64,7 +63,13 @@ const MATCH_MASKS: [u32; 16] = [
 pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
     debug_assert!(prefix < 16); // only nibbles allowed
     debug_assert!(masklen < 5);
-    INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
+    //INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
+    let ret = unsafe{
+        //let ptr: *INTERNAL_LOOKUP_TABLE;
+        *(*INTERNAL_LOOKUP_TABLE.get_unchecked(masklen as usize)).get_unchecked(prefix as usize)
+    };
+    debug_assert!(ret > 0);
+    ret
 }
 
 /// ```TrieNode ``` encodes result and child node pointers in a bitmap.
@@ -97,11 +102,6 @@ pub struct TrieNode {
     /// results base pointer
     pub result_ptr: u32,
 }
-
-//enum SearchResult {
-//    Internal(usize, usize, u32), // (result position, result count, result_ptr)
-//    External(usize, usize, u32), // (external position, external count, child_ptr)
-//}
 
 pub const BIT_MATCH: [u32;32] = [
     0,
@@ -406,12 +406,12 @@ mod tests {
         (4, 0b1111),];
 
     #[bench]
-    fn bench_gen_bitmaps(b: &mut Bencher) {
-        b.iter(||{
-            for item in &TEST_DATA {
-                let (mask, prefix) = *item;
+    fn bench_gen_bitmap(b: &mut Bencher) {
+        for item in &TEST_DATA {
+            let (mask, prefix) = *item;
+            b.iter(||{
                 test::black_box(gen_bitmap(prefix, mask));
-            }
-        });
+            });
+        }
     }
 }

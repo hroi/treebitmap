@@ -366,11 +366,11 @@ mod tests {
 
     #[bench]
     fn bench_ralloc_choose_bucket_32(b: &mut Bencher) {
-        b.iter(|| {
-            for _ in 0..32 {
-                black_box(choose_bucket(31));
-            }
-        })
+        for i in 0..32 {
+            b.iter(|| {
+                black_box(choose_bucket(i));
+            })
+        }
     }
 
     #[bench]
