@@ -102,7 +102,7 @@ pub struct TrieNode {
 //    External(usize, usize, u32), // (external position, external count, child_ptr)
 //}
 
-const BIT_MATCH: [u32;32] = [
+pub const BIT_MATCH: [u32;32] = [
     0,
     1, 1,
     2, 2, 2, 2,
@@ -146,8 +146,8 @@ impl fmt::Debug for TrieNode {
             return f.debug_struct("EndNode")
                 .field("bitmap", &bitmap_string)
                 .field("internal", &int_nodes)
-                .field("children", &child_nodes)
-                .field("child_ptr", &self.child_ptr)
+                //.field("children", &child_nodes)
+                //.field("child_ptr", &self.child_ptr)
                 .field("result_ptr", &self.result_ptr)
                 .finish();
         }
@@ -218,7 +218,7 @@ impl TrieNode {
     /// # Panics
     /// + if not already an endnode.
     pub fn make_normalnode(&mut self) {
-        assert!(self.is_endnode(), "make_endnode: already a normalnode.");
+        debug_assert!(self.is_endnode(), "make_endnode: already a normalnode.");
         self.bitmap &= END_BIT_MASK
     }
 

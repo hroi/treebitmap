@@ -23,6 +23,7 @@ impl<T: fmt::Debug> fmt::Debug for BucketVec<T> {
             .field("len", &self.len)
             .field("cap", &self.buf.cap())
             //.field("base_ptr", &base_ptr)
+            //.field("buf", unsafe {&slice::from_raw_parts(self.buf.ptr(), self.buf.cap() as usize)})
             .field("buf", unsafe {&slice::from_raw_parts(self.buf.ptr(), self.len as usize)})
             .finish()
     }
@@ -40,7 +41,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn new(spacing: u32) -> BucketVec<T> {
-        Self::with_capacity(spacing, 32)
+        Self::with_capacity(spacing, 0)
     }
 
     pub fn alloc_slot(&mut self) -> u32 {
@@ -65,11 +66,12 @@ impl<T: Sized> BucketVec<T> {
         self.freelist.push(slot)
     }
 
-    pub fn get_slot_entry(&self, slot: u32, index: u32) -> T {
+    pub fn get_slot_entry(&self, slot: u32, index: u32) -> &T {
         let offset = slot + index;
         unsafe {
             let src_ptr = self.buf.ptr().offset(offset as isize);
-            ptr::read(src_ptr)
+            //ptr::read(src_ptr)
+            &*src_ptr
         }
     }
 
@@ -82,7 +84,8 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
-    /// Insert ```value``` into ```slot``` at ```index```. Values to the right of ```index``` will be moved. If all values have been set the last value will be lost.
+    /// Insert ```value``` into ```slot``` at ```index```. Values to the right of ```index``` will be moved.
+    /// If all values have been set the last value will be lost.
     pub fn insert_slot_entry(&mut self, slot: u32, index: u32, value: T) {
         let offset = slot + index;
         unsafe {
@@ -188,6 +191,15 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
+    pub fn mem_usage(&self) -> usize {
+        let mut total = 0;
+        for buckvec in &self.buckets {
+            total += buckvec.buf.cap() * mem::size_of::<T>();
+            total += buckvec.freelist.capacity() * mem::size_of::<u32>();
+        }
+        total
+    }
+
     pub fn alloc(&mut self, count: u32) -> AllocatorHandle {
         let bucket_index = choose_bucket(count) as usize;
         let slot = self.buckets[bucket_index].alloc_slot();
@@ -202,7 +214,7 @@ impl<T: Sized> Allocator<T> {
         self.buckets[bucket_index].set_slot_entry(hdl.offset, index, value)
     }
 
-    pub fn get(&self, hdl: &AllocatorHandle, index: u32) -> T {
+    pub fn get(&self, hdl: &AllocatorHandle, index: u32) -> &T {
         let bucket_index = choose_bucket(hdl.len) as usize;
         self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
     }
@@ -211,6 +223,8 @@ impl<T: Sized> Allocator<T> {
         let mut bucket_index = choose_bucket(hdl.len) as usize;
         let next_bucket_index = choose_bucket(hdl.len + 1) as usize;
         let mut slot = hdl.offset;
+
+        debug_assert!(self.buckets[bucket_index].len >= hdl.offset);
 
         if bucket_index != next_bucket_index {
             // move to bigger bucket
@@ -237,7 +251,7 @@ impl<T: Sized> Allocator<T> {
         let ret = self.buckets[bucket_index].remove_slot_entry(slot, index);
 
         if bucket_index != next_bucket_index {
-            // move to bigger bucket
+            // move to smaller bucket
             debug_assert!(next_bucket_index < 5);
             let buckets_base_ptr: *mut BucketVec<T> = &mut self.buckets[0];
             let dst: &mut BucketVec<T> = unsafe {
@@ -281,7 +295,7 @@ mod test {
             bucket.set_slot_entry(slot, i, 1000 + i);
         }
         for i in 0..spacing {
-            assert_eq!(bucket.get_slot_entry(slot, i), 1000 + i);
+            assert_eq!(*bucket.get_slot_entry(slot, i), 1000 + i);
         }
     }
 
@@ -294,8 +308,8 @@ mod test {
             bucket.insert_slot_entry(slot, 0, i);
         }
         bucket.insert_slot_entry(slot, 0, 123456);
-        assert_eq!(bucket.get_slot_entry(slot, 0), 123456);
-        assert_eq!(bucket.get_slot_entry(slot, spacing - 1), 1);
+        assert_eq!(*bucket.get_slot_entry(slot, 0), 123456);
+        assert_eq!(*bucket.get_slot_entry(slot, spacing - 1), 1);
     }
 
     #[test]
@@ -320,6 +334,8 @@ mod test {
         for i in 0..32 {
             alloc.insert(&mut hdl, 0, 2000 + i);
         }
+        println!("{:?}", hdl);
+        println!("{:#?}", alloc);
     }
 
     #[test]
@@ -348,7 +364,7 @@ mod test {
         }
 
         for i in 0..32 {
-            assert_eq!(alloc.get(&hdl, i), 1000+i);
+            assert_eq!(*alloc.get(&hdl, i), 1000+i);
         }
     }
 
