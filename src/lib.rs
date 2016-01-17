@@ -99,19 +99,16 @@ impl<T: Sized> TreeBitmap<T> {
         let mut cur_index = 0;
         let mut bits_matched = 0;
         let mut bits_searched = 0;
-        let mut tries_visited: Vec<TrieNode> = Vec::new();
         let mut best_match : Option<(AllocatorHandle, u32)> = None; // result handle + index
         for nibble in &nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
 
-            if cfg!(debug_assertions) {
-                tries_visited.push(cur_node.clone());
-            }
-
             match cur_node.match_internal(*nibble) {
                 MatchResult::Match(result_hdl, result_index, bits) => {
                     bits_matched = bits_searched;
-                    bits_matched += trie::BIT_MATCH[bits as usize];
+                    unsafe {
+                        bits_matched += *trie::BIT_MATCH.get_unchecked(bits as usize);
+                    }
                     best_match = Some((result_hdl, result_index));
                 },
                 _ => ()
@@ -331,11 +328,20 @@ mod tests {
     }
 
     #[bench]
-    fn bench_full_bgp_lookup(b: &mut Bencher) {
+    fn bench_treebitmap_bgp_lookup(b: &mut Bencher) {
         let tbm = load_bgp_dump(0).unwrap();
-        let google_dns = Ipv4Addr::new(8,8,8,8);
+        let google_dns = Ipv4Addr::new(4,0,0,4);
         b.iter(|| {
             black_box(tbm.longest_match(google_dns));
         })
+    }
+    #[bench]
+    fn bench_treebitmap_bgp_lookup_random(b: &mut Bencher) {
+        let tbm = load_bgp_dump(0).unwrap();
+        let mut rng = rand::weak_rng();
+        b.iter(||{
+            let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
+            black_box(tbm.longest_match(ip));
+        });
     }
 }

@@ -293,7 +293,7 @@ impl TrieNode {
 
     #[inline]
     pub fn match_internal(&self, segment: u8) -> MatchResult {
-        let match_mask = MATCH_MASKS[segment as usize];
+        let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let result_match = self.internal() & match_mask;
         if result_match > 0 {
             let result_hdl = self.result_handle();
@@ -309,7 +309,7 @@ impl TrieNode {
 
     #[inline]
     pub fn match_external(&self, segment: u8) -> MatchResult {
-        let match_mask = MATCH_MASKS[segment as usize];
+        let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let child_match = self.external() & match_mask;
         if child_match > 0 {
             let child_hdl = self.child_handle();
