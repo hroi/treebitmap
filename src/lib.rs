@@ -20,7 +20,6 @@ use nibbles::Nibbles;
 
 //#[derive(Debug)]
 pub struct TreeBitmap<T: Sized> {
-    //rootnode: TrieNode,
     trienodes: Allocator<TrieNode>,
     results: Allocator<T>,
 }
@@ -41,7 +40,6 @@ impl<T: Sized> TreeBitmap<T> {
         let mut resultsallocator: Allocator<T> = Allocator::with_capacity(n);
         resultsallocator.alloc(0);
         TreeBitmap {
-            //rootnode: rootnode,
             trienodes: trieallocator,
             results: resultsallocator,
         }
@@ -93,36 +91,55 @@ impl<T: Sized> TreeBitmap<T> {
         // note: we do not need to touch the external bits, they are correct as are
     }
 
-    /// longest match lookup of ```ip```. Returns matched ip as u32, bits matched as u32, and reference to T.
+    /// longest match lookup of ```ip```. Returns matched ip as Ipv4Addr, bits matched as u32, and reference to T.
     pub fn longest_match(&self, ip: Ipv4Addr) -> Option<(Ipv4Addr, u32, &T)> {
         let ip = u32::from(ip);
         let nibbles = ip.nibbles();
         let mut cur_hdl = self.root_hdl();
         let mut cur_index = 0;
         let mut bits_matched = 0;
-
+        let mut bits_searched = 0;
+        let mut tries_visited: Vec<TrieNode> = Vec::new();
+        let mut best_match : Option<(AllocatorHandle, u32)> = None; // result handle + index
         for nibble in &nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
-            let match_result = cur_node.match_segment(*nibble);
 
-            match match_result {
+            if cfg!(debug_assertions) {
+                tries_visited.push(cur_node.clone());
+            }
+
+            match cur_node.match_internal(*nibble) {
+                MatchResult::Match(result_hdl, result_index, bits) => {
+                    bits_matched = bits_searched;
+                    bits_matched += trie::BIT_MATCH[bits as usize];
+                    best_match = Some((result_hdl, result_index));
+                },
+                _ => ()
+            }
+
+            match cur_node.match_external(*nibble) {
                 MatchResult::Chase(child_hdl, offset) => {
-                    bits_matched += 4;
+                    bits_searched += 4;
                     cur_hdl = child_hdl;
                     cur_index = offset;
                     continue;
                 },
-                MatchResult::Match(result_hdl, result_slot, bits) => {
-                    //bits_matched += *trie::BIT_MATCH.get_unchecked(bits as usize); //[bits as usize];
-                    bits_matched += trie::BIT_MATCH[bits as usize]; //[bits as usize];
-                    let masked_ip = match bits_matched {
-                        0 => 0,
-                        32 => ip,
-                        _ => ip & (!0 << (32 - bits_matched))
-                    };
-                    return Some((Ipv4Addr::from(masked_ip), bits_matched, self.results.get(&result_hdl, result_slot)));
+                MatchResult::None => {
+                    match best_match {
+                        Some((result_hdl, result_index)) => {
+                            debug_assert!(bits_matched <= 32, format!("{} matched {} bits?", Ipv4Addr::from(ip), bits_matched));
+                            let masked_ip = match bits_matched {
+                                0 => 0,
+                                32 => ip,
+                                _ => ip & (!0 << (32 - bits_matched))
+                            };
+                            return Some((Ipv4Addr::from(masked_ip), bits_matched,
+                                         self.results.get(&result_hdl, result_index)));
+                        },
+                        None => return None,
+                    }
                 },
-                MatchResult::None => return None,
+                _ => unreachable!()
             }
         }
         unreachable!()
@@ -208,6 +225,9 @@ impl<T: Sized> TreeBitmap<T> {
 
 #[cfg(test)]
 mod tests {
+    extern crate rand;
+    use self::rand::{Rng};
+
     use super::*;
     use test::{Bencher,black_box};
     use std::net::Ipv4Addr;
@@ -281,10 +301,20 @@ mod tests {
     }
 
     #[test]
+    fn test_treebitmap_lookup_all_the_things() {
+        let tbm = load_bgp_dump(0).unwrap();
+        let mut rng = rand::weak_rng();
+        for _ in 0..100 {
+            let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
+            let result = tbm.longest_match(ip);
+            println!("lookup({}) -> {:?}", ip, result);
+        }
+    }
+
+    #[test]
     fn test_treebitmap_pushdown() {
         let mut tbm = TreeBitmap::<u32>::new();
         let mut result_hdl = tbm.results.alloc(0);
-        //let root_hdl = AllocatorHandle::generate(1, 0);
         let root_hdl = tbm.root_hdl();
         let mut root_node = tbm.root_node();
 
@@ -296,7 +326,6 @@ mod tests {
         }
 
         tbm.trienodes.set(&root_hdl, 0, root_node);
-
         tbm.push_down(&mut root_node);
         tbm.trienodes.set(&root_hdl, 0, root_node);
     }
