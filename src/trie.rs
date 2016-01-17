@@ -1,6 +1,6 @@
 use std::fmt;
-use nibbles::{Nibbles};
-use super::AllocatorHandle;
+//use nibbles::{Nibbles};
+use allocator_raw::AllocatorHandle;
 
 pub const INT_MASK: u32 = 0xffff0000;
 pub const EXT_MASK: u32 = 0x0000ffff;
@@ -60,9 +60,10 @@ const MATCH_MASKS: [u32; 16] = [
     MSB | MSB >> 2 | MSB >> 6 | MSB >> 14 | MSB >> 31, // 1111
 ];
 
+#[inline]
 pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
-    assert!(prefix < 16); // only nibbles allowed
-    assert!(masklen < 5);
+    debug_assert!(prefix < 16); // only nibbles allowed
+    debug_assert!(masklen < 5);
     INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
 }
 
@@ -177,16 +178,19 @@ impl TrieNode {
     }
 
     /// Is node blank?
+    #[inline]
     pub fn is_blank(&self) -> bool {
         self.bitmap + self.child_ptr + self.result_ptr == 0
     }
 
     /// Is node an end node?
+    #[inline]
     pub fn is_endnode(&self) -> bool {
         self.bitmap & END_BIT > 0
     }
 
     /// Get internal bitmap (result entries). Any external bits are filtered.
+    #[inline]
     pub fn internal(&self) -> u32 {
         if self.is_endnode() {
             self.bitmap & END_BIT_MASK // filter the end node bit
@@ -196,6 +200,7 @@ impl TrieNode {
     }
 
     /// Get external bitmap (child entries). Any internal bits are filtered.
+    #[inline]
     pub fn external(&self) -> u32 {
         if self.is_endnode() {
             0
@@ -208,6 +213,7 @@ impl TrieNode {
     /// # Panics
     /// + if bit already set.
     /// + if there are any external node pointers.
+    #[inline]
     pub fn make_endnode(&mut self) {
         debug_assert!(!self.is_endnode(), "make_endnode: already an endnode.");
         debug_assert!(self.external() == 0, "cannot make into endnode when there are children present");
@@ -217,27 +223,32 @@ impl TrieNode {
     /// Unset the endnode-bit.
     /// # Panics
     /// + if not already an endnode.
+    #[inline]
     pub fn make_normalnode(&mut self) {
         debug_assert!(self.is_endnode(), "make_endnode: already a normalnode.");
         self.bitmap &= END_BIT_MASK
     }
 
     /// Get number of child pointers.
+    #[inline]
     pub fn child_count(&self) -> u32 {
         self.external().count_ones()
     }
 
     /// Get number of result pointers.
+    #[inline]
     pub fn result_count(&self) -> u32 {
         self.internal().count_ones()
     }
 
     /// Get handle to the results.
+    #[inline]
     pub fn result_handle(&self) -> AllocatorHandle {
         AllocatorHandle::generate(self.result_count(), self.result_ptr)
     }
 
     /// Get handle to child nodes.
+    #[inline]
     pub fn child_handle(&self) -> AllocatorHandle {
         AllocatorHandle::generate(self.child_count(), self.child_ptr)
     }
@@ -246,39 +257,23 @@ impl TrieNode {
     ///
     /// # Panics
     /// + if an attempt is made to set an already set internal bit or any non-internal bit.
+    #[inline]
     pub fn set_internal(&mut self, bitmap: u32) {
         debug_assert!(bitmap.count_ones() == 1, "set_internal: bitmap must contain exactly one bit");
         debug_assert!(bitmap & END_BIT == 0, "set_internal: not permitted to set the endnode bit");
         debug_assert!(self.bitmap & bitmap == 0, "set_internal: bit already set");
         if !self.is_endnode() {
-            assert!(bitmap & EXT_MASK == 0, "set_internal: attempted to set external bit"); 
+            debug_assert!(bitmap & EXT_MASK == 0, "set_internal: attempted to set external bit"); 
         }
         self.bitmap |= bitmap
     }
-
-    // Set an internal bit by index.
-    //
-    // # Panics
-    // + if an attempt is made to set an already set internal bit or any non-internal bit.
-    //pub fn set_internal_idx(&mut self, index: u32) {
-    //    if self.is_endnode() {
-    //        assert!(index < 32, "set_internal_idx: bit index out of bounds");
-    //
-    //    } else {
-    //        assert!(index < 15, "set_internal_idx: bit index out of bounds");
-    //    }
-    //    let bitmap = 1<<(31 - index);
-    //    if !self.is_endnode() {
-    //        assert!(bitmap & EXT_MASK == 0, "set_internal: attempted to set external bit"); 
-    //    }
-    //    self.bitmap |= bit_to_set
-    //}
 
     /// Set an external bit.
     ///
     /// # Panics
     /// + if an attempt is made to set an already set external bit or any non-external bit.
     /// + if the node is an endnode.
+    #[inline]
     pub fn set_external(&mut self, bitmap: u32) {
         debug_assert!(!self.is_endnode(), "set_external: endnodes don't have external bits");
         debug_assert!(bitmap & END_BIT == 0, "set_external: not permitted to set the endnode bit");
@@ -288,6 +283,7 @@ impl TrieNode {
     }
 
     /// Perform a match on segment/masklen.
+    #[inline]
     pub fn match_segment(&self, segment: u8) -> MatchResult {
         let match_mask = MATCH_MASKS[segment as usize];
         let child_match = self.external() & match_mask;
@@ -296,7 +292,7 @@ impl TrieNode {
             let best_match_bit_index = 31 - child_match.trailing_zeros();
             let best_match_child_index = match best_match_bit_index {
                 0 => 0,
-                n => (self.external() >> (32 - best_match_bit_index)).count_ones()
+                _ => (self.external() >> (32 - best_match_bit_index)).count_ones()
             };
             return MatchResult::Chase(child_hdl, best_match_child_index);
         }
@@ -307,41 +303,12 @@ impl TrieNode {
             let best_match_bit_index = 31 - result_match.trailing_zeros();
             let best_match_result_index = match best_match_bit_index {
                 0 => 0,
-                n => (self.internal() >> (32 - best_match_bit_index)).count_ones()
+                _ => (self.internal() >> (32 - best_match_bit_index)).count_ones()
             };
             return MatchResult::Match(result_hdl, best_match_result_index, best_match_bit_index);
         }
         MatchResult::None
     }
-
-    // Perform a match on segment/masklen.
-    //pub fn match_segment_mask(&self, segment: u8, masklen: u32) -> MatchResult {
-    //    debug_assert!(segment < 16);
-    //    debug_assert!(masklen <= 4);
-    //    let bitmap = gen_bitmap(segment, masklen);
-    //    if self.internal() & bitmap > 0 {
-    //        // we have an exact result!
-    //        let my_index = bitmap.leading_zeros();
-    //        let my_rank = match my_index { // how many results are set before me
-    //            0 => 0,
-    //            _ => (self.internal() >> (32 - my_index)).count_ones(),
-    //        };
-    //        return MatchResult::Match(self.result_handle(), my_rank);
-    //    }
-    //    if self.is_endnode() {
-    //        return MatchResult::None;
-    //    }
-    //    if self.external() & bitmap > 0 {
-    //        let my_index = bitmap.leading_zeros();
-    //        let my_rank = match my_index { // how many children are set before me
-    //            0 => 0,
-    //            _ => (self.external() >> (32 - my_index)).count_ones(),
-    //        };
-    //        return MatchResult::Chase(self.child_handle(), my_rank);
-    //    }
-    //    return MatchResult::None;
-    //}
-
 }
 
 #[derive(Debug)]
@@ -352,13 +319,11 @@ pub enum MatchResult {
 }
 
 #[cfg(test)]
-mod test {
-    #![allow(unused_imports)]
+mod tests {
     extern crate test;
     use super::*;
     use nibbles::Nibbles;
     use self::test::{Bencher,black_box};
-    //use std::net::Ipv4Addr;
 
     #[test]
     fn test_nibbles() {
@@ -387,7 +352,7 @@ mod test {
         let match_result = node.match_segment(segment);
         println!("match_segment({:04b}): {:?}", segment, match_result);
         match match_result {
-            MatchResult::Match(child_hdl, _, _) => (),
+            MatchResult::Match(_, _, _) => (),
             _ => panic!("match failure")
         }
     }
@@ -406,24 +371,6 @@ mod test {
             black_box(node.match_segment(segment));
         });
     }
-
-    //#[test]
-    //fn test_match_segment_mask() {
-    //    let segment = 7>>4;
-    //    let masklen = 4;
-    //    let segment2 = 10>>4;
-    //    let masklen2 = 3;
-    //    let bitmap = gen_bitmap(segment, masklen);
-    //    let bitmap2 = gen_bitmap(segment2, masklen2);
-    //    println!("bitmap: {:032b}", bitmap);
-    //    let mut node = TrieNode::new();
-    //    node.child_ptr = 123123123;
-    //    //node.set_external(bitmap & END_BIT_MASK);
-    //    node.set_internal(bitmap2 & END_BIT_MASK);
-    //    println!("node: {:#?}", node);
-    //    let res = node.match_segment_mask(segment, masklen);
-    //    println!("node.match({:04b}, {}) -> {:?}", segment, masklen, res);
-    //}
 
     const TEST_DATA: [(u32,u8); 31]= [
         (0, 0b0000),

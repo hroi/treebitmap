@@ -9,21 +9,18 @@ use alloc::raw_vec::RawVec;
 pub struct BucketVec<T> {
     buf: RawVec<T>,
     freelist: Vec<u32>,
-    len: u32, // in T
+    len: u32,
     spacing: u32,
 }
 
 impl<T: fmt::Debug> fmt::Debug for BucketVec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let base_ptr = format!("{:p}", self.buf.ptr());
 
         f.debug_struct("BucketVec")
             .field("spacing", &self.spacing)
             .field("freelist", &self.freelist)
             .field("len", &self.len)
             .field("cap", &self.buf.cap())
-            //.field("base_ptr", &base_ptr)
-            //.field("buf", unsafe {&slice::from_raw_parts(self.buf.ptr(), self.buf.cap() as usize)})
             .field("buf", unsafe {&slice::from_raw_parts(self.buf.ptr(), self.len as usize)})
             .finish()
     }
@@ -40,6 +37,7 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new(spacing: u32) -> BucketVec<T> {
         Self::with_capacity(spacing, 0)
     }
@@ -70,7 +68,6 @@ impl<T: Sized> BucketVec<T> {
         let offset = slot + index;
         unsafe {
             let src_ptr = self.buf.ptr().offset(offset as isize);
-            //ptr::read(src_ptr)
             &*src_ptr
         }
     }
@@ -124,7 +121,6 @@ impl<T: Sized> BucketVec<T> {
 
         unsafe {
             let src_ptr = self.buf.ptr().offset(slot as isize);
-            //println!("move_slot: copying {} items: {:?}..{:?}", nitems, ptr::read(src_ptr), ptr::read(src_ptr.offset(nitems as isize)));
             let dst_ptr = dst.buf.ptr().offset(dst_slot as isize);
             ptr::copy_nonoverlapping(src_ptr, dst_ptr, nitems as usize);
             if cfg!(debug_assertions) {
@@ -175,7 +171,8 @@ impl AllocatorHandle {
 }
 
 impl<T: Sized> Allocator<T> {
-    /// Initialize a new allocator.
+    /// Initialize a new allocator with default capacity.
+    #[allow(dead_code)]
     pub fn new() -> Allocator<T> {
         Allocator {
             buckets: [BucketVec::new(1), BucketVec::new(2), BucketVec::new(4),
@@ -183,7 +180,7 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
-    /// Initialize a new allocator.
+    /// Initialize a new ```Allocator``` with specified capacity.
     pub fn with_capacity(cap: usize) -> Allocator<T> {
         Allocator {
             buckets: [BucketVec::with_capacity(1, cap), BucketVec::with_capacity( 2, cap), BucketVec::with_capacity(4, cap),
@@ -191,6 +188,7 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn mem_usage(&self) -> usize {
         let mut total = 0;
         for buckvec in &self.buckets {
@@ -268,10 +266,9 @@ impl<T: Sized> Allocator<T> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
-    extern crate test;
-    use self::test::{Bencher,black_box};
+    use test::{Bencher,black_box};
 
     #[test]
     fn test_ralloc_bucketvec_move_to() {
@@ -282,8 +279,7 @@ mod test {
         for i in 0..spacing {
             a.set_slot_entry(slot_offset,i,1000 + i);
         }
-        let len = a.len;
-        let off = a.move_slot(0, &mut b);
+        let _ = a.move_slot(0, &mut b);
     }
 
     #[test]
@@ -320,7 +316,7 @@ mod test {
     #[test]
     fn test_ralloc_allocator_alloc1() {
         let mut alloc = Allocator::<u32>::new();
-        let hdl = alloc.alloc(1);
+        let _ = alloc.alloc(1);
     }
 
     #[test]
@@ -371,7 +367,7 @@ mod test {
     #[bench]
     fn bench_ralloc_choose_bucket_32(b: &mut Bencher) {
         b.iter(|| {
-            for i in 0..32 {
+            for _ in 0..32 {
                 black_box(choose_bucket(31));
             }
         })
