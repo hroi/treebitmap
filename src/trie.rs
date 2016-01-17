@@ -285,29 +285,10 @@ impl TrieNode {
     /// Perform a match on segment/masklen.
     #[inline]
     pub fn match_segment(&self, segment: u8) -> MatchResult {
-        let match_mask = MATCH_MASKS[segment as usize];
-        let child_match = self.external() & match_mask;
-        if child_match > 0 {
-            let child_hdl = AllocatorHandle::generate(self.child_count(), self.child_ptr);
-            let best_match_bit_index = 31 - child_match.trailing_zeros();
-            let best_match_child_index = match best_match_bit_index {
-                0 => 0,
-                _ => (self.external() >> (32 - best_match_bit_index)).count_ones()
-            };
-            return MatchResult::Chase(child_hdl, best_match_child_index);
+        match self.match_external(segment) {
+            MatchResult::None => self.match_internal(segment),
+            x => x,
         }
-
-        let result_match = self.internal() & match_mask;
-        if result_match > 0 {
-            let result_hdl = AllocatorHandle::generate(self.result_count(), self.result_ptr);
-            let best_match_bit_index = 31 - result_match.trailing_zeros();
-            let best_match_result_index = match best_match_bit_index {
-                0 => 0,
-                _ => (self.internal() >> (32 - best_match_bit_index)).count_ones()
-            };
-            return MatchResult::Match(result_hdl, best_match_result_index, best_match_bit_index);
-        }
-        MatchResult::None
     }
 
     #[inline]
@@ -315,7 +296,6 @@ impl TrieNode {
         let match_mask = MATCH_MASKS[segment as usize];
         let result_match = self.internal() & match_mask;
         if result_match > 0 {
-            //let result_hdl = AllocatorHandle::generate(self.result_count(), self.result_ptr);
             let result_hdl = self.result_handle();
             let best_match_bit_index = 31 - result_match.trailing_zeros();
             let best_match_result_index = match best_match_bit_index {
@@ -332,7 +312,6 @@ impl TrieNode {
         let match_mask = MATCH_MASKS[segment as usize];
         let child_match = self.external() & match_mask;
         if child_match > 0 {
-            //let child_hdl = AllocatorHandle::generate(self.child_count(), self.child_ptr);
             let child_hdl = self.child_handle();
             let best_match_bit_index = 31 - child_match.trailing_zeros();
             let best_match_child_index = match best_match_bit_index {
