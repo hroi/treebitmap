@@ -104,18 +104,9 @@ impl<T: Sized> TreeBitmap<T> {
         for nibble in &nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
             let match_mask = unsafe {*trie::MATCH_MASKS.get_unchecked(*nibble as usize)};
-            //println!("  nibble: {} - {:04b}   cur_hld: {:?}", nibble, nibble, cur_hdl);
-            //if cur_node.is_endnode() {
-            //    //println!("  internal:  {:016b} {:016b} (endnode)", cur_node.internal() >> 16,
-            //    //         cur_node.internal() & 0x0000ffff);
-            //} else {
-            //    //println!("  int/ext:   {:015b}- {:016b}", cur_node.internal() >> 17,
-            //    //         cur_node.external() & 0x0000ffff );
-            //}
-            //println!("  matchmask: {:016b} {:016b}", match_mask >> 16, match_mask & 0x0000ffff);
+
             match cur_node.match_internal(match_mask) {
                 MatchResult::Match(result_hdl, result_index, matching_bit_index) => {
-                    //println!("  internal match at bit index {}, the {}th set bit. result_ptr: {}", matching_bit_index, result_index, cur_node.result_ptr);
                     bits_matched = bits_searched;
                     unsafe {
                         bits_matched += *trie::BIT_MATCH.get_unchecked(matching_bit_index as usize);
@@ -125,35 +116,35 @@ impl<T: Sized> TreeBitmap<T> {
                 _ => ()
             }
 
+            if cur_node.is_endnode() {
+                break;
+            }
             match cur_node.match_external(match_mask) {
                 MatchResult::Chase(child_hdl, child_index) => {
-                    //println!("  child found at {} from the left. child_ptr: {}", child_index, cur_node.child_ptr);
                     bits_searched += 4;
                     cur_hdl = child_hdl;
                     cur_index = child_index;
-                    //println!("");
                     continue;
                 },
                 MatchResult::None => {
-                    match best_match {
-                        Some((result_hdl, result_index)) => {
-                            debug_assert!(bits_matched <= 32, format!("{} matched {} bits?", Ipv4Addr::from(ip), bits_matched));
-                            //println!("");
-                            let masked_ip = match bits_matched {
-                                0 => 0,
-                                32 => ip,
-                                _ => ip & (!0 << (32 - bits_matched))
-                            };
-                            return Some((Ipv4Addr::from(masked_ip), bits_matched,
-                                         self.results.get(&result_hdl, result_index)));
-                        },
-                        None => return None,
-                    }
+                    break;
                 },
                 _ => unreachable!()
             }
         }
-        unreachable!()
+        match best_match {
+            Some((result_hdl, result_index)) => {
+                debug_assert!(bits_matched <= 32, format!("{} matched {} bits?", Ipv4Addr::from(ip), bits_matched));
+                let masked_ip = match bits_matched {
+                    0 => 0,
+                    32 => ip,
+                    _ => ip & (!0 << (32 - bits_matched))
+                };
+                return Some((Ipv4Addr::from(masked_ip), bits_matched,
+                              self.results.get(&result_hdl, result_index)));
+            },
+            None => return None,
+        }
     }
 
     /// returns any existing T set for key
