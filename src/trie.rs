@@ -37,7 +37,7 @@ static INTERNAL_LOOKUP_TABLE: Table = [
 
 pub const MSB: u32 = 1<<31;
 
-static MATCH_MASKS: [u32; 16] = [
+pub static MATCH_MASKS: [u32; 16] = [
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 16, // 0000
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 17, // 0001
     MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 18, // 0010
@@ -96,7 +96,7 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 #[derive(Clone,Copy)]
 pub struct TrieNode {
     /// child/result bitmap
-    pub bitmap:     u32, // first 16 bits: internal, last 16 bits: child bitmap
+    bitmap:     u32, // first 16 bits: internal, last 16 bits: child bitmap
     /// child base pointer
     pub child_ptr:  u32,
     /// results base pointer
@@ -285,15 +285,16 @@ impl TrieNode {
     /// Perform a match on segment/masklen.
     #[inline]
     pub fn match_segment(&self, segment: u8) -> MatchResult {
-        match self.match_external(segment) {
-            MatchResult::None => self.match_internal(segment),
+        let match_mask = unsafe {*MATCH_MASKS.get_unchecked(segment as usize)};
+        match self.match_external(match_mask) {
+            MatchResult::None => self.match_internal(match_mask),
             x => x,
         }
     }
 
     #[inline]
-    pub fn match_internal(&self, segment: u8) -> MatchResult {
-        let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
+    pub fn match_internal(&self, match_mask: u32) -> MatchResult {
+        //let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let result_match = self.internal() & match_mask;
         if result_match > 0 {
             let result_hdl = self.result_handle();
@@ -308,8 +309,8 @@ impl TrieNode {
     }
 
     #[inline]
-    pub fn match_external(&self, segment: u8) -> MatchResult {
-        let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
+    pub fn match_external(&self, match_mask: u32) -> MatchResult {
+        //let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let child_match = self.external() & match_mask;
         if child_match > 0 {
             let child_hdl = self.child_handle();

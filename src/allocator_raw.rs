@@ -31,7 +31,7 @@ impl<T: Sized> BucketVec<T> {
     pub fn with_capacity(spacing: u32, capacity: usize) -> BucketVec<T> {
         BucketVec {
             buf: RawVec::with_capacity(capacity),
-            freelist: Vec::with_capacity(capacity),
+            freelist: Vec::with_capacity(32),
             len: 0,
             spacing: spacing,
         }
@@ -132,6 +132,10 @@ impl<T: Sized> BucketVec<T> {
 
         dst_slot
     }
+
+    fn shrink_to_fit(&mut self) {
+        self.buf.shrink_to_fit(self.len as usize);
+    }
 }
 
 #[inline]
@@ -189,13 +193,22 @@ impl<T: Sized> Allocator<T> {
     }
 
     #[allow(dead_code)]
-    pub fn mem_usage(&self) -> usize {
+    /// Returns the amount of memory allocated, and the amount of memory allocated but not used.
+    pub fn mem_usage(&self) -> (usize, usize) {
         let mut total = 0;
+        let mut wasted = 0;
         for buckvec in &self.buckets {
             total += buckvec.buf.cap() * mem::size_of::<T>();
             total += buckvec.freelist.capacity() * mem::size_of::<u32>();
+            wasted += buckvec.freelist.len() * mem::size_of::<T>();
         }
-        total
+        (total, wasted)
+    }
+
+    pub fn shrink_to_fit(&mut self) {
+        for buckvec in &mut self.buckets {
+            buckvec.shrink_to_fit();
+        }
     }
 
     pub fn alloc(&mut self, count: u32) -> AllocatorHandle {

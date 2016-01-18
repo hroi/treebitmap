@@ -18,7 +18,6 @@ use trie::{TrieNode, MatchResult};
 mod nibbles;
 use nibbles::Nibbles;
 
-//#[derive(Debug)]
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<TrieNode>,
     results: Allocator<T>,
@@ -63,7 +62,8 @@ impl<T: Sized> TreeBitmap<T> {
         // count number of internal nodes in the first 15 bits (those that will remain in place).
         let remove_at = (node.internal() & 0xffff0000).count_ones();
         // count how many nodes to push down
-        let nodes_to_pushdown = (node.bitmap & 0x0000ffff).count_ones();
+        //let nodes_to_pushdown = (node.bitmap & 0x0000ffff).count_ones();
+        let nodes_to_pushdown = (node.internal() & 0x0000ffff).count_ones();
         if nodes_to_pushdown > 0 {
             let mut result_hdl = node.result_handle();
             let mut child_node_hdl = self.trienodes.alloc(0);
@@ -93,6 +93,7 @@ impl<T: Sized> TreeBitmap<T> {
 
     /// longest match lookup of ```ip```. Returns matched ip as Ipv4Addr, bits matched as u32, and reference to T.
     pub fn longest_match(&self, ip: Ipv4Addr) -> Option<(Ipv4Addr, u32, &T)> {
+        //println!("longest_match(ip: {})", ip);
         let ip = u32::from(ip);
         let nibbles = ip.nibbles();
         let mut cur_hdl = self.root_hdl();
@@ -102,29 +103,42 @@ impl<T: Sized> TreeBitmap<T> {
         let mut best_match : Option<(AllocatorHandle, u32)> = None; // result handle + index
         for nibble in &nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
-
-            match cur_node.match_internal(*nibble) {
-                MatchResult::Match(result_hdl, result_index, bits) => {
+            let match_mask = unsafe {*trie::MATCH_MASKS.get_unchecked(*nibble as usize)};
+            //println!("  nibble: {} - {:04b}   cur_hld: {:?}", nibble, nibble, cur_hdl);
+            //if cur_node.is_endnode() {
+            //    //println!("  internal:  {:016b} {:016b} (endnode)", cur_node.internal() >> 16,
+            //    //         cur_node.internal() & 0x0000ffff);
+            //} else {
+            //    //println!("  int/ext:   {:015b}- {:016b}", cur_node.internal() >> 17,
+            //    //         cur_node.external() & 0x0000ffff );
+            //}
+            //println!("  matchmask: {:016b} {:016b}", match_mask >> 16, match_mask & 0x0000ffff);
+            match cur_node.match_internal(match_mask) {
+                MatchResult::Match(result_hdl, result_index, matching_bit_index) => {
+                    //println!("  internal match at bit index {}, the {}th set bit. result_ptr: {}", matching_bit_index, result_index, cur_node.result_ptr);
                     bits_matched = bits_searched;
                     unsafe {
-                        bits_matched += *trie::BIT_MATCH.get_unchecked(bits as usize);
+                        bits_matched += *trie::BIT_MATCH.get_unchecked(matching_bit_index as usize);
                     }
                     best_match = Some((result_hdl, result_index));
                 },
                 _ => ()
             }
 
-            match cur_node.match_external(*nibble) {
-                MatchResult::Chase(child_hdl, offset) => {
+            match cur_node.match_external(match_mask) {
+                MatchResult::Chase(child_hdl, child_index) => {
+                    //println!("  child found at {} from the left. child_ptr: {}", child_index, cur_node.child_ptr);
                     bits_searched += 4;
                     cur_hdl = child_hdl;
-                    cur_index = offset;
+                    cur_index = child_index;
+                    //println!("");
                     continue;
                 },
                 MatchResult::None => {
                     match best_match {
                         Some((result_hdl, result_index)) => {
                             debug_assert!(bits_matched <= 32, format!("{} matched {} bits?", Ipv4Addr::from(ip), bits_matched));
+                            //println!("");
                             let masked_ip = match bits_matched {
                                 0 => 0,
                                 32 => ip,
@@ -173,6 +187,7 @@ impl<T: Sized> TreeBitmap<T> {
                     _ => cur_node.result_handle()
                 };
                 let result_index = (cur_node.internal() >> (bitmap & trie::END_BIT_MASK).trailing_zeros()).count_ones();
+
                 cur_node.set_internal(bitmap & trie::END_BIT_MASK);
                 self.results.insert(&mut result_hdl, result_index, value); // add result
                 cur_node.result_ptr = result_hdl.offset;
@@ -198,6 +213,7 @@ impl<T: Sized> TreeBitmap<T> {
             } else {
                 // follow existing branch
                 if let MatchResult::Chase(child_hdl, index) = cur_node.match_segment(*nibble) {
+                    self.trienodes.set(&cur_hdl, cur_index, cur_node.clone()); // save trie node
                     bits_left -= 4;
                     cur_hdl = child_hdl;
                     cur_index = index;
@@ -217,6 +233,11 @@ impl<T: Sized> TreeBitmap<T> {
             cur_hdl = child_hdl;
             cur_index = child_index;
         }
+    }
+
+    pub fn shrink_to_fit(&mut self) {
+        self.trienodes.shrink_to_fit();
+        self.results.shrink_to_fit();
     }
 }
 
@@ -264,8 +285,8 @@ mod tests {
         assert_eq!(result, None);
     }
 
-    fn load_bgp_dump(limit: u32) -> Result<TreeBitmap<u32>, Error> {
-        let mut tbm = TreeBitmap::<u32>::with_capacity(512);
+    fn load_bgp_dump_light(limit: u32) -> Result<TreeBitmap<()>, Error> {
+        let mut tbm = TreeBitmap::<()>::with_capacity(512);
         let f = try!(File::open("test/bgp-dump.txt"));
         let r = BufReader::new(f);
         let mut i = 0;
@@ -279,19 +300,44 @@ mod tests {
                 let ip = Ipv4Addr::from_str(&line[..slash_offset]).unwrap();
                 let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
                 assert!(masklen <= 32);
-                tbm.insert(ip, masklen, i);
+                tbm.insert(ip, masklen, ());
             }
         }
+        tbm.shrink_to_fit();
+        Ok(tbm)
+    }
+
+    fn load_bgp_dump(limit: u32) -> Result<TreeBitmap<(Ipv4Addr, u32)>, Error> {
+        let mut tbm = TreeBitmap::<(Ipv4Addr,u32)>::with_capacity(512);
+        let f = try!(File::open("test/bgp-dump.txt"));
+        let r = BufReader::new(f);
+        let mut i = 0;
+        for line in r.lines() {
+            let line = line.unwrap();
+            if let Some(slash_offset) = line.find('/') {
+                i += 1;
+                if limit > 0 && i > limit {
+                    break;
+                }
+                let ip = Ipv4Addr::from_str(&line[..slash_offset]).unwrap();
+                let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
+                assert!(masklen <= 32);
+                tbm.insert(ip, masklen, (ip, masklen));
+            }
+        }
+        tbm.shrink_to_fit();
         Ok(tbm)
     }
 
     #[test]
     fn test_load_full_bgp() {
-        let tbm = load_bgp_dump(0).unwrap();
+        let tbm = load_bgp_dump_light(0).unwrap();
         let google_dns = Ipv4Addr::new(8,8,8,8);
         let (prefix, mask, val)= tbm.longest_match(google_dns).unwrap();
-        println!("tbm trie memory usage: {} Kbytes", tbm.trienodes.mem_usage());
-        println!("tbm result memory usage: {} Kbytes", tbm.results.mem_usage());
+        let (allocated, wasted) = tbm.trienodes.mem_usage();
+        println!("Tree-bitmap node memory: {} bytes allocated, {} bytes wasted", allocated, wasted);
+        let (allocated, wasted) = tbm.results.mem_usage();
+        println!("Tree-bitmap result memory: {} bytes allocated, {} bytes wasted", allocated, wasted);
         println!("tbm.longest_match({}) -> {}/{} => {:?}", google_dns, prefix, mask, val);
         assert_eq!(prefix, Ipv4Addr::new(8,8,8,0));
         assert_eq!(mask, 24);
@@ -301,10 +347,14 @@ mod tests {
     fn test_treebitmap_lookup_all_the_things() {
         let tbm = load_bgp_dump(0).unwrap();
         let mut rng = rand::weak_rng();
-        for _ in 0..100 {
+        for _ in 0..1000 {
             let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
             let result = tbm.longest_match(ip);
             println!("lookup({}) -> {:?}", ip, result);
+            if let Some((prefix, masklen, val)) = result {
+                let (orig_prefix, orig_masklen) = *val;
+                assert_eq!((prefix, masklen), (orig_prefix, orig_masklen));
+            }
         }
     }
 
@@ -328,20 +378,49 @@ mod tests {
     }
 
     #[bench]
-    fn bench_treebitmap_bgp_lookup(b: &mut Bencher) {
-        let tbm = load_bgp_dump(0).unwrap();
-        let google_dns = Ipv4Addr::new(4,0,0,4);
+    fn bench_treebitmap_bgp_lookup_apple(b: &mut Bencher) {
+        let tbm = load_bgp_dump_light(0).unwrap();
+        let ip = Ipv4Addr::new(17,151,0,151);
         b.iter(|| {
-            black_box(tbm.longest_match(google_dns));
+            black_box(tbm.longest_match(ip));
         })
     }
+
+    #[bench]
+    fn bench_treebitmap_bgp_lookup_netgroup(b: &mut Bencher) {
+        let tbm = load_bgp_dump_light(0).unwrap();
+        let ip = Ipv4Addr::new(77,66,88,50);
+        b.iter(|| {
+            black_box(tbm.longest_match(ip));
+        })
+    }
+
+    #[bench]
+    fn bench_treebitmap_bgp_lookup_googledns(b: &mut Bencher) {
+        let tbm = load_bgp_dump_light(0).unwrap();
+        let ip = Ipv4Addr::new(8,8,8,8);
+        b.iter(|| {
+            black_box(tbm.longest_match(ip));
+        })
+    }
+
     #[bench]
     fn bench_treebitmap_bgp_lookup_random(b: &mut Bencher) {
-        let tbm = load_bgp_dump(0).unwrap();
+        let tbm = load_bgp_dump_light(0).unwrap();
         let mut rng = rand::weak_rng();
         b.iter(||{
-            let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
+            let r: u32 = rng.gen_range(1<<24, 224<<24);
+            let ip = Ipv4Addr::from(r);
             black_box(tbm.longest_match(ip));
+        });
+    }
+
+    #[bench]
+    fn bench_weak_rng(b: &mut Bencher) {
+        let mut rng = rand::weak_rng();
+        b.iter(||{
+            let r: u32 = rng.gen_range(1<<24, 224<<24);
+            black_box(r);
         });
     }
 }
