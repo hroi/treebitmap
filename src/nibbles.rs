@@ -20,3 +20,30 @@ impl Nibbles for u32 {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate test;
+    extern crate rand;
+    use super::*;
+    use self::test::{Bencher,black_box};
+    use self::rand::Rng;
+
+    #[test]
+    fn test_nibbles() {
+        let n = 0x12345678;
+        assert_eq!([1,2,3,4,5,6,7,8], n.nibbles());
+    }
+
+    #[bench]
+    fn bench_nibbles_u32(b: &mut Bencher) {
+        let mut rng = rand::weak_rng();
+        let n: u32 = rng.gen();
+        b.iter(|| {
+            for i in n..n+80 {
+                //black_box(i.nibbles());
+                black_box(i);
+            }
+        });
+    }
+} 

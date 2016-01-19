@@ -64,6 +64,7 @@ impl<T: Sized> BucketVec<T> {
         self.freelist.push(slot)
     }
 
+    #[inline]
     pub fn get_slot_entry(&self, slot: u32, index: u32) -> &T {
         let offset = slot + index;
         unsafe {
@@ -138,8 +139,17 @@ impl<T: Sized> BucketVec<T> {
     }
 }
 
+const LEN2BUCKET: [u32;32] = [0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
+    unsafe{
+        *LEN2BUCKET.get_unchecked(len as usize)
+    }
+}
+
+#[inline]
+pub fn choose_bucket2(len: u32) -> u32 {
     match len {
         0 => 0,
         _ => (32 - (len - 1).leading_zeros())
@@ -378,12 +388,21 @@ mod tests {
     }
 
     #[bench]
+    fn bench_ralloc_choose_bucket2_32(b: &mut Bencher) {
+        b.iter(|| {
+            for i in 0..32 {
+                black_box(choose_bucket2(i));
+            }
+        })
+    }
+
+    #[bench]
     fn bench_ralloc_choose_bucket_32(b: &mut Bencher) {
-        for i in 0..32 {
-            b.iter(|| {
+        b.iter(|| {
+            for i in 0..32 {
                 black_box(choose_bucket(i));
-            })
-        }
+            }
+        })
     }
 
     #[bench]

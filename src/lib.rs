@@ -5,6 +5,9 @@
 //! A datastructure for fast IP lookups in software. Based on Tree-bitmap algorithm described by W. Eatherton, Z. Dittia, G. Varghes.
 //!
 
+#[macro_use]
+#[cfg(test)]
+extern crate lazy_static;
 extern crate alloc; // for RawVec
 extern crate test;
 use std::net::Ipv4Addr;
@@ -45,14 +48,14 @@ impl<T: Sized> TreeBitmap<T> {
     }
 
     /// Returns handle to root node.
-    fn root_hdl(&self) -> AllocatorHandle {
+    fn root_handle(&self) -> AllocatorHandle {
         AllocatorHandle::generate(1, 0)
     }
 
     /// Returns the root node.
     #[cfg(test)]
     fn root_node(&self) -> TrieNode {
-        self.trienodes.get(&self.root_hdl(), 0).clone()
+        self.trienodes.get(&self.root_handle(), 0).clone()
     }
 
     /// Push down results encoded in the last 16 bits into child trie nodes. Makes ```node``` into a normal node.
@@ -96,7 +99,7 @@ impl<T: Sized> TreeBitmap<T> {
         //println!("longest_match(ip: {})", ip);
         let ip = u32::from(ip);
         let nibbles = ip.nibbles();
-        let mut cur_hdl = self.root_hdl();
+        let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
         let mut bits_matched = 0;
         let mut bits_searched = 0;
@@ -132,6 +135,7 @@ impl<T: Sized> TreeBitmap<T> {
                 _ => unreachable!()
             }
         }
+
         match best_match {
             Some((result_hdl, result_index)) => {
                 debug_assert!(bits_matched <= 32, format!("{} matched {} bits?", Ipv4Addr::from(ip), bits_matched));
@@ -150,7 +154,7 @@ impl<T: Sized> TreeBitmap<T> {
     /// returns any existing T set for key
     pub fn insert(&mut self, ip: Ipv4Addr, masklen: u32, value: T) {
         let nibbles = u32::from(ip).nibbles();
-        let mut cur_hdl = self.root_hdl();
+        let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
         let mut bits_left = masklen;
 
@@ -235,8 +239,13 @@ impl<T: Sized> TreeBitmap<T> {
 #[cfg(test)]
 mod tests {
     extern crate rand;
+
     use self::rand::{Rng};
 
+    lazy_static! {
+        static ref FULL_BGP_TABLE_U32: TreeBitmap<(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
+        static ref FULL_BGP_TABLE_LIGHT: TreeBitmap<()> = {load_bgp_dump_light(0).unwrap()};
+    }
     use super::*;
     use test::{Bencher,black_box};
     use std::net::Ipv4Addr;
@@ -336,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_treebitmap_lookup_all_the_things() {
-        let tbm = load_bgp_dump(0).unwrap();
+        let ref tbm = FULL_BGP_TABLE_U32;
         let mut rng = rand::weak_rng();
         for _ in 0..1000 {
             let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
@@ -353,7 +362,7 @@ mod tests {
     fn test_treebitmap_pushdown() {
         let mut tbm = TreeBitmap::<u32>::new();
         let mut result_hdl = tbm.results.alloc(0);
-        let root_hdl = tbm.root_hdl();
+        let root_hdl = tbm.root_handle();
         let mut root_node = tbm.root_node();
 
         root_node.make_endnode();
@@ -370,39 +379,53 @@ mod tests {
 
     #[bench]
     fn bench_treebitmap_bgp_lookup_apple(b: &mut Bencher) {
-        let tbm = load_bgp_dump_light(0).unwrap();
         let ip = Ipv4Addr::new(17,151,0,151);
         b.iter(|| {
-            black_box(tbm.longest_match(ip));
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
         })
     }
 
     #[bench]
     fn bench_treebitmap_bgp_lookup_netgroup(b: &mut Bencher) {
-        let tbm = load_bgp_dump_light(0).unwrap();
         let ip = Ipv4Addr::new(77,66,88,50);
         b.iter(|| {
-            black_box(tbm.longest_match(ip));
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
         })
     }
 
     #[bench]
     fn bench_treebitmap_bgp_lookup_googledns(b: &mut Bencher) {
-        let tbm = load_bgp_dump_light(0).unwrap();
         let ip = Ipv4Addr::new(8,8,8,8);
         b.iter(|| {
-            black_box(tbm.longest_match(ip));
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
         })
     }
 
     #[bench]
-    fn bench_treebitmap_bgp_lookup_random(b: &mut Bencher) {
-        let tbm = load_bgp_dump_light(0).unwrap();
+    fn bench_treebitmap_bgp_lookup_localhost(b: &mut Bencher) {
+        let ip = Ipv4Addr::new(127,0,0,1);
+        b.iter(|| {
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
+        })
+    }
+
+    #[bench]
+    fn bench_treebitmap_bgp_lookup_random_sample(b: &mut Bencher) {
+        let mut rng = rand::weak_rng();
+        let r: u32 = rng.gen_range(1<<24, 224<<24);
+        let ip = Ipv4Addr::from(r);
+        b.iter(||{
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
+        });
+    }
+
+    #[bench]
+    fn bench_treebitmap_bgp_lookup_random_every(b: &mut Bencher) {
         let mut rng = rand::weak_rng();
         b.iter(||{
             let r: u32 = rng.gen_range(1<<24, 224<<24);
             let ip = Ipv4Addr::from(r);
-            black_box(tbm.longest_match(ip));
+            black_box(FULL_BGP_TABLE_LIGHT.longest_match(ip));
         });
     }
 
