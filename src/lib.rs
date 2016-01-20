@@ -159,7 +159,16 @@ impl<T: Sized> TreeBitmap<T> {
         let mut bits_left = masklen;
         let mut ret = None;
 
-        for nibble in &nibbles {
+        //for nibble in &nibbles {
+        let mut loop_count = 0;
+        loop {
+            let nibble = if loop_count < nibbles.len() {
+                nibbles[loop_count]
+            } else {
+                0
+            };
+            loop_count += 1;
+            let nibble = &nibble;
 
             let mut cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
             let match_result = cur_node.match_segment(*nibble);
@@ -235,7 +244,6 @@ impl<T: Sized> TreeBitmap<T> {
             cur_hdl = child_hdl;
             cur_index = child_index;
         }
-        None
     }
 
     pub fn shrink_to_fit(&mut self) {
@@ -251,7 +259,7 @@ mod tests {
     use self::rand::{Rng};
 
     lazy_static! {
-        static ref FULL_BGP_TABLE_U32: TreeBitmap<(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
+        static ref FULL_BGP_TABLE_IDENT: TreeBitmap<(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
         static ref FULL_BGP_TABLE_LIGHT: TreeBitmap<()> = {load_bgp_dump_light(0).unwrap()};
     }
     use super::*;
@@ -360,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_treebitmap_lookup_all_the_things() {
-        let ref tbm = FULL_BGP_TABLE_U32;
+        let ref tbm = FULL_BGP_TABLE_IDENT;
         let mut rng = rand::weak_rng();
         for _ in 0..1000 {
             let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
@@ -371,6 +379,13 @@ mod tests {
                 assert_eq!((prefix, masklen), (orig_prefix, orig_masklen));
             }
         }
+    }
+
+    #[test]
+    fn test_treebitmap_lookup_host() {
+        let ip = Ipv4Addr::new(217,199,218,175);
+        let ret = FULL_BGP_TABLE_IDENT.longest_match(ip);
+        assert_eq!(ret, Some((ip, 32, &(ip, 32))));
     }
 
     #[test]
