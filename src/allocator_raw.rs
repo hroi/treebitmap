@@ -94,6 +94,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn remove_slot_entry(&mut self, slot: u32, index: u32) -> T {
+        debug_assert!(index < self.spacing);
         let offset = slot + index;
         let ret: T;
         unsafe {
@@ -139,22 +140,23 @@ impl<T: Sized> BucketVec<T> {
     }
 }
 
-const LEN2BUCKET: [u32;32] = [0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+static LEN2BUCKET: [u32;33] = [0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
+    debug_assert!(len < 33);
     unsafe{
         *LEN2BUCKET.get_unchecked(len as usize)
     }
 }
 
-#[inline]
-pub fn choose_bucket2(len: u32) -> u32 {
-    match len {
-        0 => 0,
-        _ => (32 - (len - 1).leading_zeros())
-    }
-}
+//#[inline]
+//pub fn choose_bucket2(len: u32) -> u32 {
+//    match len {
+//        0 => 0,
+//        _ => (32 - (len - 1).leading_zeros())
+//    }
+//}
 
 /// ```Allocator``` stores items in exponentially sized buckets (using ```BucketVec```s for backing).
 ///
@@ -176,6 +178,7 @@ pub struct AllocatorHandle {
 }
 
 impl AllocatorHandle {
+    #[inline]
     pub fn generate(len: u32, offset: u32) -> AllocatorHandle {
         AllocatorHandle{
             len: len,
@@ -235,9 +238,13 @@ impl<T: Sized> Allocator<T> {
         self.buckets[bucket_index].set_slot_entry(hdl.offset, index, value)
     }
 
+    #[inline]
     pub fn get(&self, hdl: &AllocatorHandle, index: u32) -> &T {
         let bucket_index = choose_bucket(hdl.len) as usize;
-        self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
+        //self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
+        unsafe {
+            (*self.buckets.get_unchecked(bucket_index)).get_slot_entry(hdl.offset, index)
+        }
     }
 
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {
@@ -385,15 +392,6 @@ mod tests {
         for i in 0..32 {
             assert_eq!(*alloc.get(&hdl, i), 1000+i);
         }
-    }
-
-    #[bench]
-    fn bench_ralloc_choose_bucket2_32(b: &mut Bencher) {
-        b.iter(|| {
-            for i in 0..32 {
-                black_box(choose_bucket2(i));
-            }
-        })
     }
 
     #[bench]

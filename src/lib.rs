@@ -152,11 +152,12 @@ impl<T: Sized> TreeBitmap<T> {
     }
 
     /// returns any existing T set for key
-    pub fn insert(&mut self, ip: Ipv4Addr, masklen: u32, value: T) {
+    pub fn insert(&mut self, ip: Ipv4Addr, masklen: u32, value: T) -> Option<T>{
         let nibbles = u32::from(ip).nibbles();
         let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
         let mut bits_left = masklen;
+        let mut ret = None;
 
         for nibble in &nibbles {
 
@@ -183,11 +184,17 @@ impl<T: Sized> TreeBitmap<T> {
                 };
                 let result_index = (cur_node.internal() >> (bitmap & trie::END_BIT_MASK).trailing_zeros()).count_ones();
 
-                cur_node.set_internal(bitmap & trie::END_BIT_MASK);
-                self.results.insert(&mut result_hdl, result_index, value); // add result
+                if cur_node.internal() & (bitmap & trie::END_BIT_MASK) > 0 {
+                    // key already exists!
+                    ret = Some(self.results.remove(&mut result_hdl, result_index - 1)); // get existing value
+                    self.results.insert(&mut result_hdl, result_index - 1, value); // set result
+                } else {
+                    cur_node.set_internal(bitmap & trie::END_BIT_MASK);
+                    self.results.insert(&mut result_hdl, result_index, value); // add result
+                }
                 cur_node.result_ptr = result_hdl.offset;
                 self.trienodes.set(&cur_hdl, cur_index, cur_node.clone()); // save trie node
-                return;
+                return ret;
             }
             // add a branch
 
@@ -228,6 +235,7 @@ impl<T: Sized> TreeBitmap<T> {
             cur_hdl = child_hdl;
             cur_index = child_index;
         }
+        None
     }
 
     pub fn shrink_to_fit(&mut self) {
@@ -262,6 +270,13 @@ mod tests {
         tbm.insert(Ipv4Addr::new(77,66,19,0), 24, 100003);
         tbm.insert(Ipv4Addr::new(77,66,19,0), 28, 100004);
         tbm.insert(Ipv4Addr::new(217,116,224,0), 19, 100005);
+    }
+
+    #[test]
+    fn test_treebitmap_insert_dup() {
+        let mut tbm = TreeBitmap::<u32>::new();
+        assert_eq!(tbm.insert(Ipv4Addr::new(10,0,0,0), 8, 1), None);
+        assert_eq!(tbm.insert(Ipv4Addr::new(10,0,0,0), 8, 2), Some(1));
     }
 
     #[test]

@@ -147,8 +147,6 @@ impl fmt::Debug for TrieNode {
             return f.debug_struct("EndNode")
                 .field("bitmap", &bitmap_string)
                 .field("internal", &int_nodes)
-                //.field("children", &child_nodes)
-                //.field("child_ptr", &self.child_ptr)
                 .field("result_ptr", &self.result_ptr)
                 .finish();
         }
@@ -385,6 +383,7 @@ mod tests {
             black_box(node.match_segment(segment));
         });
     }
+
 
     const TEST_DATA: [(u32,u8); 31]= [
         (0, 0b0000),
