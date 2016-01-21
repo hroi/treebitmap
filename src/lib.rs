@@ -1,7 +1,7 @@
 #![feature(test)]
 #![feature(alloc)]
 
-//! # Fast IP lookup table for IPv4/IPv6
+//! # Fast IP lookup table for IPv4/IPv6 prefixes
 //!
 //! This crate provides an implementation of the Tree-Bitmap datastructure for fast IP lookups in software. It has very fast lookup times, and a small memory footprint.
 //! A full Ipv4 BGP table of > 600k entries fits is < 5 MB. A full Ipv6 BGP table of > 25k entries fits in < 1 MB.
@@ -172,66 +172,14 @@ impl<T: Sized> TreeBitmap<T> {
         // note: we do not need to touch the external bits, they are correct as are
     }
 
-    ///// longest match lookup of ```ip```. Returns matched ip as Ipv6Addr, bits matched as u32, and reference to T.
-    //pub fn longest_match_v6(&self, ip: Ipv6Addr) -> Option<(Ipv6Addr, u32, &T)> {
-    //    let mut nibbles = [0u8; 32];
-    //    let mut i = 0;
-    //    for segment in ip.segments().iter() {
-    //        let subnibs = segment.nibbles();
-    //        for subnib in subnibs.iter() {
-    //            nibbles[i] = *subnib;
-    //            i += 1
-    //        }
-    //    }
-    //    match self.longest_match_nibbles(&nibbles) {
-    //        Some((bits_matched, val)) => {
-    //            debug_assert!(bits_matched <=128, format!("{} bits matched", bits_matched));
-    //            let segs = ip.segments();
-    //            let mut masked_segs = [0u16; 8];
-    //            let segs_matched = (bits_matched/16u32) as usize;
-    //            for i in 0..segs_matched as usize {
-    //                masked_segs[i] = segs[i];
-    //            }
-    //            let remaining_bits = bits_matched % 16;
-    //            if remaining_bits > 0 {
-    //                let mask = !0 << (16 - remaining_bits);
-    //                masked_segs[segs_matched] = segs[segs_matched] & mask;
-    //            }
-    //            Some((Ipv6Addr::new(masked_segs[0], masked_segs[1], masked_segs[2], masked_segs[3],
-    //                                 masked_segs[4], masked_segs[5], masked_segs[6], masked_segs[7]),
-    //                  bits_matched, val ))
-    //        },
-    //        None => None
-    //    }
-    //}
-
-    //// longest match lookup of ```ip```. Returns matched ip as Ipv4Addr, bits matched as u32, and reference to T.
-    //pub fn longest_match(&self, ip: Ipv4Addr) -> Option<(Ipv4Addr, u32, &T)> {
-    //    let ip = u32::from(ip);
-    //    let nibbles = ip.nibbles();
-    //    match self.longest_match_nibbles(&nibbles) {
-    //        Some((bits_matched, val)) => {
-    //            let masked_ip = match bits_matched {
-    //                0 => 0,
-    //                32 => ip,
-    //                _ => ip & (!0 << (32 - bits_matched))
-    //            };
-    //            Some((Ipv4Addr::from(masked_ip), bits_matched, val ))
-    //        },
-    //        None => None
-    //    }
-    //}
-
     /// longest match lookup of ```ip```. Returns matched ip as Ipv4Addr, bits matched as u32, and reference to T.
     fn longest_match(&self, nibbles: &[u8]) -> Option<(u32, &T)> {
-    //fn longest_match(&self, ip: K) -> Option<(K,u32, &T)> {
-        //println!("longest_match(ip: {})", ip);
-        //let ip = u32::from(ip);
         let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
         let mut bits_matched = 0;
         let mut bits_searched = 0;
         let mut best_match : Option<(AllocatorHandle, u32)> = None; // result handle + index
+
         for nibble in nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
             let match_mask = unsafe {*trie::MATCH_MASKS.get_unchecked(*nibble as usize)};
@@ -268,7 +216,6 @@ impl<T: Sized> TreeBitmap<T> {
             Some((result_hdl, result_index)) => {
                 debug_assert!(bits_matched <= 32, format!("matched {} bits?", bits_matched));
                 return Some((bits_matched, self.results.get(&result_hdl, result_index)));
-                //return Some((ip.mask(bits_matched), bits_matched, self.results.get(&result_hdl, result_index)));
             },
             None => return None,
         }
@@ -276,15 +223,11 @@ impl<T: Sized> TreeBitmap<T> {
 
 
     fn insert(&mut self, nibbles: &[u8], masklen: u32, value: T) -> Option<T> {
-    //fn insert(&mut self, ip: K, masklen: u32, value: T) -> Option<T> {
-        //let nibbles = u32::from(ip).nibbles();
-        //let nibbles = ip.nibbles();
         let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
         let mut bits_left = masklen;
         let mut ret = None;
 
-        //for nibble in &nibbles {
         let mut loop_count = 0;
         loop {
             let nibble = if loop_count < nibbles.len() {
@@ -320,8 +263,6 @@ impl<T: Sized> TreeBitmap<T> {
 
                 if cur_node.internal() & (bitmap & trie::END_BIT_MASK) > 0 {
                     // key already exists!
-                    //ret = Some(self.results.remove(&mut result_hdl, result_index - 1)); // get existing value
-                    //self.results.insert(&mut result_hdl, result_index - 1, value); // set result
                     ret = Some(self.results.replace(&mut result_hdl, result_index - 1, value));
                 } else {
                     cur_node.set_internal(bitmap & trie::END_BIT_MASK);
