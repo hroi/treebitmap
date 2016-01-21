@@ -82,6 +82,17 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
+    pub fn replace_slot_entry(&mut self, slot: u32, index: u32, value: T) -> T {
+        debug_assert!(index < self.spacing);
+        let offset = slot + index;
+        unsafe {
+            let dst_ptr = self.buf.ptr().offset(offset as isize);
+            let ret = ptr::read(dst_ptr);
+            ptr::write(dst_ptr, value);
+            ret
+        }
+    }
+
     /// Insert ```value``` into ```slot``` at ```index```. Values to the right of ```index``` will be moved.
     /// If all values have been set the last value will be lost.
     pub fn insert_slot_entry(&mut self, slot: u32, index: u32, value: T) {
@@ -135,9 +146,9 @@ impl<T: Sized> BucketVec<T> {
         dst_slot
     }
 
-    fn shrink_to_fit(&mut self) {
-        self.buf.shrink_to_fit(self.len as usize);
-    }
+    //fn shrink_to_fit(&mut self) {
+    //    self.buf.shrink_to_fit(self.len as usize);
+    //}
 }
 
 static LEN2BUCKET: [u32;33] = [0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
@@ -218,11 +229,11 @@ impl<T: Sized> Allocator<T> {
         (total, wasted)
     }
 
-    pub fn shrink_to_fit(&mut self) {
-        for buckvec in &mut self.buckets {
-            buckvec.shrink_to_fit();
-        }
-    }
+    //pub fn shrink_to_fit(&mut self) {
+    //    for buckvec in &mut self.buckets {
+    //        buckvec.shrink_to_fit();
+    //    }
+    //}
 
     pub fn alloc(&mut self, count: u32) -> AllocatorHandle {
         let bucket_index = choose_bucket(count) as usize;
@@ -236,6 +247,11 @@ impl<T: Sized> Allocator<T> {
     pub fn set(&mut self, hdl: &AllocatorHandle, index: u32, value: T) {
         let bucket_index = choose_bucket(hdl.len) as usize;
         self.buckets[bucket_index].set_slot_entry(hdl.offset, index, value)
+    }
+
+    pub fn replace(&mut self, hdl: &AllocatorHandle, index: u32, value: T) -> T {
+        let bucket_index = choose_bucket(hdl.len) as usize;
+        self.buckets[bucket_index].replace_slot_entry(hdl.offset, index, value)
     }
 
     #[inline]

@@ -334,14 +334,7 @@ pub enum MatchResult {
 mod tests {
     extern crate test;
     use super::*;
-    use nibbles::Nibbles;
     use self::test::{Bencher,black_box};
-
-    #[test]
-    fn test_nibbles() {
-        let n: u32 = 0x12345678;
-        debug_assert!(n.nibbles() == [1,2,3,4,5,6,7,8]);
-    }
 
     #[test]
     fn test_trienode_new() {

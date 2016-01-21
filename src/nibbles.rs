@@ -4,8 +4,8 @@ pub trait Nibbles {
     type Output;
     /// Return a string of nibbles (4-bit bytes). Each nibble is encoded as a ```u8```.
     fn nibbles(self) -> Self::Output;
-    fn nibbles2(self) -> Self::Output;
-    fn nibbles3(self) -> Self::Output;
+    //fn nibbles2(self) -> Self::Output;
+    //fn nibbles3(self) -> Self::Output;
 }
 
 static BYTE2NIBBLES: [[u8;2];256] = [
@@ -43,20 +43,35 @@ static BYTE2NIBBLES: [[u8;2];256] = [
     [15, 8], [15, 9], [15, 10], [15, 11], [15, 12], [15, 13], [15, 14], [15, 15],
 ];
 
+impl Nibbles for u16 {
+    type Output = [u8; 4];
+    #[inline]
+    fn nibbles(self) -> [u8; 4] {
+        let input:  [u8; 2] = unsafe { mem::transmute(self.to_be()) };
+        let mut output: [u8; 4] = unsafe { mem::uninitialized() };
+        for i in 0..input.len() {
+            let nibs = unsafe { *BYTE2NIBBLES.get_unchecked(*input.get_unchecked(i) as usize) };
+            output[i*2] = nibs[0];
+            output[i*2+1] = nibs[1];
+        }
+        output
+    }
+}
+
 impl Nibbles for u32 {
     type Output = [u8; 8];
 
-    fn nibbles2(self) -> [u8; 8] {
-        [((self >> 28) & 0xf) as u8,
-         ((self >> 24) & 0xf) as u8,
-         ((self >> 20) & 0xf) as u8,
-         ((self >> 16) & 0xf) as u8,
-         ((self >> 12) & 0xf) as u8,
-         ((self >>  8) & 0xf) as u8,
-         ((self >>  4) & 0xf) as u8,
-         ((self >>  0) & 0xf) as u8,
-        ]
-    }
+//    fn nibbles2(self) -> [u8; 8] {
+//        [((self >> 28) & 0xf) as u8,
+//         ((self >> 24) & 0xf) as u8,
+//         ((self >> 20) & 0xf) as u8,
+//         ((self >> 16) & 0xf) as u8,
+//         ((self >> 12) & 0xf) as u8,
+//         ((self >>  8) & 0xf) as u8,
+//         ((self >>  4) & 0xf) as u8,
+//         ((self >>  0) & 0xf) as u8,
+//        ]
+//    }
 
     #[inline]
     fn nibbles(self) -> [u8; 8] {
@@ -70,12 +85,12 @@ impl Nibbles for u32 {
         output
     }
 
-    fn nibbles3(self) -> [u8; 8] {
-        let mut output = self as u64;
-        output |= (self as u64) << 28;
-        let out: [u8;8] = unsafe {mem::transmute((output & 0x0f0f_0f0f_0f0f_0f0f).to_be())};
-        [out[0], out[4], out[1], out[5], out[2], out[6], out[3], out[7]]
-    }
+//    fn nibbles3(self) -> [u8; 8] {
+//        let mut output = self as u64;
+//        output |= (self as u64) << 28;
+//        let out: [u8;8] = unsafe {mem::transmute((output & 0x0f0f_0f0f_0f0f_0f0f).to_be())};
+//        [out[0], out[4], out[1], out[5], out[2], out[6], out[3], out[7]]
+//    }
 }
 
 #[cfg(test)]
@@ -87,9 +102,26 @@ mod tests {
     use self::rand::Rng;
 
     #[test]
-    fn test_nibbles() {
-        let n = 0x12345678;
+    fn test_nibbles_u16() {
+        let n: u16 = 0x1234;
+        assert_eq!([1,2,3,4], n.nibbles());
+    }
+
+    #[test]
+    fn test_nibbles_u32() {
+        let n: u32 = 0x12345678;
         assert_eq!([1,2,3,4,5,6,7,8], n.nibbles());
+    }
+
+    #[bench]
+    fn bench_nibbles_u16(b: &mut Bencher) {
+        let mut rng = rand::weak_rng();
+        let n: u16 = rng.gen();
+        b.iter(|| {
+            for i in n..n+80 {
+                black_box(i.nibbles());
+            }
+        });
     }
 
     #[bench]
@@ -103,25 +135,4 @@ mod tests {
         });
     }
 
-    #[bench]
-    fn bench_nibbles2_u32(b: &mut Bencher) {
-        let mut rng = rand::weak_rng();
-        let n: u32 = rng.gen();
-        b.iter(|| {
-            for i in n..n+80 {
-                black_box(i.nibbles2());
-            }
-        });
-    }
-
-    #[bench]
-    fn bench_nibbles3_u32(b: &mut Bencher) {
-        let mut rng = rand::weak_rng();
-        let n: u32 = rng.gen();
-        b.iter(|| {
-            for i in n..n+80 {
-                black_box(i.nibbles3());
-            }
-        });
-    }
 }
