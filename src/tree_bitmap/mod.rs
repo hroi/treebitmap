@@ -1,10 +1,10 @@
 use std::cmp;
 
 mod node;
-mod allocator_raw;
+mod allocator;
 
 use self::node::{Node, MatchResult};
-use self::allocator_raw::{Allocator, AllocatorHandle};
+use self::allocator::{Allocator, AllocatorHandle};
 
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<Node>,
