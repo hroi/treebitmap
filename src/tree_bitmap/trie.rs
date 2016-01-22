@@ -1,5 +1,5 @@
 use std::fmt;
-use allocator_raw::AllocatorHandle;
+use super::allocator_raw::AllocatorHandle;
 
 pub const INT_MASK: u32 = 0xffff0000;
 pub const EXT_MASK: u32 = 0x0000ffff;
