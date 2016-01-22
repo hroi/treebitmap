@@ -1,13 +1,13 @@
 use std::cmp;
 
-mod trie;
+mod node;
 mod allocator_raw;
 
-use self::trie::{TrieNode, MatchResult};
+use self::node::{Node, MatchResult};
 use self::allocator_raw::{Allocator, AllocatorHandle};
 
 pub struct TreeBitmap<T: Sized> {
-    trienodes: Allocator<TrieNode>,
+    trienodes: Allocator<Node>,
     results: Allocator<T>,
 }
 
@@ -20,9 +20,9 @@ impl<T: Sized> TreeBitmap<T> {
 
     /// Returns ```TreeBitmap``` with pre-allocated buffers of size n.
     pub fn with_capacity(n: usize) -> Self {
-        let mut trieallocator: Allocator<TrieNode> = Allocator::with_capacity(n);
+        let mut trieallocator: Allocator<Node> = Allocator::with_capacity(n);
         let mut root_hdl = trieallocator.alloc(0);
-        trieallocator.insert(&mut root_hdl, 0, TrieNode::new());
+        trieallocator.insert(&mut root_hdl, 0, Node::new());
 
         TreeBitmap {
             trienodes: trieallocator,
@@ -38,12 +38,12 @@ impl<T: Sized> TreeBitmap<T> {
     /// Returns the root node.
     #[cfg(test)]
     #[allow(dead_code)]
-    fn root_node(&self) -> TrieNode {
+    fn root_node(&self) -> Node {
         self.trienodes.get(&self.root_handle(), 0).clone()
     }
 
     /// Push down results encoded in the last 16 bits into child trie nodes. Makes ```node``` into a normal node.
-    fn push_down(&mut self, node: &mut TrieNode) {
+    fn push_down(&mut self, node: &mut Node) {
         debug_assert!(node.is_endnode(), "push_down: not an endnode");
         debug_assert!(node.child_ptr == 0);
         // count number of internal nodes in the first 15 bits (those that will remain in place).
@@ -62,7 +62,7 @@ impl<T: Sized> TreeBitmap<T> {
                 let result_value = self.results.remove(&mut result_hdl, remove_at);
                 self.results.insert(&mut child_result_hdl, 0, result_value);
                 // create and save child node
-                let mut child_node = TrieNode::new();
+                let mut child_node = Node::new();
                 child_node.set_internal(1<<31);
                 child_node.result_ptr = child_result_hdl.offset;
                 // append trienode to collection
@@ -88,13 +88,13 @@ impl<T: Sized> TreeBitmap<T> {
 
         for nibble in nibbles {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
-            let match_mask = unsafe {*trie::MATCH_MASKS.get_unchecked(*nibble as usize)};
+            let match_mask = unsafe {*node::MATCH_MASKS.get_unchecked(*nibble as usize)};
 
             match cur_node.match_internal(match_mask) {
                 MatchResult::Match(result_hdl, result_index, matching_bit_index) => {
                     bits_matched = bits_searched;
                     unsafe {
-                        bits_matched += *trie::BIT_MATCH.get_unchecked(matching_bit_index as usize);
+                        bits_matched += *node::BIT_MATCH.get_unchecked(matching_bit_index as usize);
                     }
                     best_match = Some((result_hdl, result_index));
                 },
@@ -157,7 +157,7 @@ impl<T: Sized> TreeBitmap<T> {
                 }
             }
 
-            let bitmap = trie::gen_bitmap(*nibble, cmp::min(4, bits_left));
+            let bitmap = node::gen_bitmap(*nibble, cmp::min(4, bits_left));
 
             if (cur_node.is_endnode() && bits_left <= 4) || bits_left <= 3 {
                 // final node reached, insert results
@@ -165,13 +165,13 @@ impl<T: Sized> TreeBitmap<T> {
                     0 => self.results.alloc(0),
                     _ => cur_node.result_handle()
                 };
-                let result_index = (cur_node.internal() >> (bitmap & trie::END_BIT_MASK).trailing_zeros()).count_ones();
+                let result_index = (cur_node.internal() >> (bitmap & node::END_BIT_MASK).trailing_zeros()).count_ones();
 
-                if cur_node.internal() & (bitmap & trie::END_BIT_MASK) > 0 {
+                if cur_node.internal() & (bitmap & node::END_BIT_MASK) > 0 {
                     // key already exists!
                     ret = Some(self.results.replace(&mut result_hdl, result_index - 1, value));
                 } else {
-                    cur_node.set_internal(bitmap & trie::END_BIT_MASK);
+                    cur_node.set_internal(bitmap & node::END_BIT_MASK);
                     self.results.insert(&mut result_hdl, result_index, value); // add result
                 }
                 cur_node.result_ptr = result_hdl.offset;
@@ -191,9 +191,9 @@ impl<T: Sized> TreeBitmap<T> {
 
             let child_index = (cur_node.external() >> bitmap.trailing_zeros()).count_ones();
 
-            if cur_node.external() & (bitmap & trie::END_BIT_MASK) == 0 {
+            if cur_node.external() & (bitmap & node::END_BIT_MASK) == 0 {
                 // no existing branch; create it
-                cur_node.set_external(bitmap & trie::END_BIT_MASK);
+                cur_node.set_external(bitmap & node::END_BIT_MASK);
             } else {
                 // follow existing branch
                 if let MatchResult::Chase(child_hdl, index) = cur_node.match_segment(*nibble) {
@@ -207,7 +207,7 @@ impl<T: Sized> TreeBitmap<T> {
             }
 
             // prepare a child node
-            let mut child_node = TrieNode::new();
+            let mut child_node = Node::new();
             child_node.make_endnode();
             self.trienodes.insert(&mut child_hdl, child_index, child_node); // save child
             cur_node.child_ptr = child_hdl.offset;

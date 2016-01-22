@@ -72,7 +72,7 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
     ret
 }
 
-/// ```TrieNode ``` encodes result and child node pointers in a bitmap.
+/// ```Node ``` encodes result and child node pointers in a bitmap.
 ///
 /// A trie node can encode up to 31 results when acting as an "end node", or 16 results and 16 children/subtrees.
 ///
@@ -94,7 +94,7 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 /// If bit N is set it means that a child node with segment value N is present.
 /// The pointer to the child node is then computed with the ```child_ptr``` base pointer and the number of bits set left of N.
 #[derive(Clone,Copy)]
-pub struct TrieNode {
+pub struct Node {
     /// child/result bitmap
     bitmap:     u32, // first 16 bits: internal, last 16 bits: child bitmap
     /// child base pointer
@@ -121,7 +121,7 @@ const BIT_MEANING: &'static [&'static str] = &[
     "0000*", "0001*", "0010*", "0011*", "0100*", "0101*", "0110*", "0111*", "1000*", "1001*", "1010*", "1011*", "1100*", "1101*", "1110*", "1111*",
 ];
 
-impl fmt::Debug for TrieNode {
+impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut int_nodes: Vec<&str> = Vec::new();
         let mut child_nodes: Vec<u32> = Vec::new();
@@ -164,11 +164,11 @@ impl fmt::Debug for TrieNode {
 }
 
 
-impl TrieNode {
+impl Node {
 
     /// Get a fresh, blank node.
     pub fn new() -> Self {
-        TrieNode {
+        Node {
             bitmap: 0,
             child_ptr: 0,
             result_ptr: 0,
@@ -327,7 +327,7 @@ impl TrieNode {
 pub enum MatchResult {
     Match(AllocatorHandle, u32, u32), // result_handle, offset, matching bits
     Chase(AllocatorHandle, u32),      // child_handle, offset
-    None,                             // TrieNode does not match
+    None,                             // Node does not match
 }
 
 #[cfg(test)]
@@ -338,13 +338,13 @@ mod tests {
 
     #[test]
     fn test_trienode_new() {
-        TrieNode::new();
+        Node::new();
     }
 
     #[test]
     fn test_trienode_match_segment() {
         // case 1
-        let mut node = TrieNode::new();
+        let mut node = Node::new();
         node.make_endnode();
         node.set_internal(MSB);      // *
         node.set_internal(MSB >> 1); // 0*
@@ -364,7 +364,7 @@ mod tests {
 
     #[bench]
     fn bench_trienode_match_segment(b: &mut Bencher) {
-        let mut node = TrieNode::new();
+        let mut node = Node::new();
         node.make_endnode();
         node.set_internal(MSB);      // *
         node.set_internal(MSB >> 1); // 0*
