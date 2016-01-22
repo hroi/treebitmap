@@ -87,9 +87,7 @@ impl<T: Sized> BucketVec<T> {
         let offset = slot + index;
         unsafe {
             let dst_ptr = self.buf.ptr().offset(offset as isize);
-            let ret = ptr::read(dst_ptr);
-            ptr::write(dst_ptr, value);
-            ret
+            ptr::replace(dst_ptr, value)
         }
     }
 
