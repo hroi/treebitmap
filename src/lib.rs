@@ -23,11 +23,12 @@ use tree_bitmap::TreeBitmap;
 mod address;
 use address::Address;
 
+///The operations defined on the lookup table.
 pub trait IpLookupTableOps<Addr, T> {
-    /// Initialize an empty lookup table with no preallocation.
-    fn new() -> Self;
-    /// Initialize an empty lookup table with pre-allocated buffers.
-    fn with_capacity(n: usize) -> Self;
+    ///// Initialize an empty lookup table with no preallocation.
+    //fn new() -> Self;
+    ///// Initialize an empty lookup table with pre-allocated buffers.
+    //fn with_capacity(n: usize) -> Self;
     /// Insert a value for the prefix designated by ip and masklen. If prefix existed previously, the old value is returned.
     fn insert(&mut self, ip: Addr, masklen: u32, value: T) -> Option<T>;
     /// Remove an entry from the lookup table. If the prefix existed previously, the value is returned.
@@ -44,24 +45,27 @@ pub struct IpLookupTable<A, T> {
     _addrtype: PhantomData<A>,
 }
 
+impl<A, T> IpLookupTable<A, T> {
+    /// Initialize an empty lookup table with no preallocation.
+    pub fn new() -> Self {
+        IpLookupTable {
+            inner: TreeBitmap::new(),
+            _addrtype: PhantomData,
+        }
+    }
+
+    /// Initialize an empty lookup table with pre-allocated buffers.
+    pub fn with_capacity(n: usize) -> Self {
+        IpLookupTable {
+            inner: TreeBitmap::with_capacity(n),
+            _addrtype: PhantomData,
+        }
+    }
+}
 
 macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
-
-            fn new() -> Self {
-                IpLookupTable {
-                    inner: TreeBitmap::new(),
-                    _addrtype: PhantomData,
-                }
-            }
-
-            fn with_capacity(n: usize) -> Self {
-                IpLookupTable {
-                    inner: TreeBitmap::with_capacity(n),
-                    _addrtype: PhantomData,
-                }
-            }
 
             fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T>{
                 self.inner.insert(&ip.nibbles(), masklen, value)
