@@ -25,10 +25,6 @@ use address::Address;
 
 ///The operations defined on the lookup table.
 pub trait IpLookupTableOps<Addr, T> {
-    ///// Initialize an empty lookup table with no preallocation.
-    //fn new() -> Self;
-    ///// Initialize an empty lookup table with pre-allocated buffers.
-    //fn with_capacity(n: usize) -> Self;
     /// Insert a value for the prefix designated by ip and masklen. If prefix existed previously, the old value is returned.
     fn insert(&mut self, ip: Addr, masklen: u32, value: T) -> Option<T>;
     /// Remove an entry from the lookup table. If the prefix existed previously, the value is returned.
