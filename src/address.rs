@@ -3,18 +3,18 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address {
-    type Output;
+    type Nibbles;
     /// Return a string of nibbles (4-bit words).
-    fn nibbles(self) -> Self::Output;
+    fn nibbles(self) -> Self::Nibbles;
     /// Returns self masked to n bits.
     fn mask(self, masklen: u32) -> Self;
 }
 
 impl Address for Ipv4Addr {
-    type Output = [u8; 8];
+    type Nibbles = [u8; 8];
 
-    fn nibbles(self) -> Self::Output {
-        let mut ret: Self::Output = unsafe{mem::uninitialized()};
+    fn nibbles(self) -> Self::Nibbles {
+        let mut ret: Self::Nibbles = unsafe{mem::uninitialized()};
         let bytes: [u8;4] = unsafe {mem::transmute(self)};
         for i in 0..bytes.len() {
             ret[i*2]   = bytes[i] >> 4;
@@ -35,10 +35,10 @@ impl Address for Ipv4Addr {
 }
 
 impl Address for Ipv6Addr {
-    type Output = [u8; 32];
+    type Nibbles = [u8; 32];
 
-    fn nibbles(self) -> Self::Output {
-        let mut ret: Self::Output = unsafe{mem::uninitialized()};
+    fn nibbles(self) -> Self::Nibbles {
+        let mut ret: Self::Nibbles = unsafe{mem::uninitialized()};
         let bytes: [u8;16] = unsafe {mem::transmute(self)};
         for i in 0..bytes.len() {
             ret[i*2]   = bytes[i] >> 4;
