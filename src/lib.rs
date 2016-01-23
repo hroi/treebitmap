@@ -49,7 +49,6 @@ macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
 
-            /// Initialize an empty ```IpLookupTable``` with no preallocation.
             fn new() -> Self {
                 IpLookupTable {
                     inner: TreeBitmap::new(),
@@ -57,7 +56,6 @@ macro_rules! impl_ops {
                 }
             }
 
-            /// Initialize an empty ```IpLookupTable``` with pre-allocated buffers.
             fn with_capacity(n: usize) -> Self {
                 IpLookupTable {
                     inner: TreeBitmap::with_capacity(n),
@@ -65,26 +63,22 @@ macro_rules! impl_ops {
                 }
             }
 
-            /// Insert a value for the prefix designated by ip and masklen. If prefix existed previously, the old value is returned.
             fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T>{
                 self.inner.insert(&ip.nibbles(), masklen, value)
             }
 
-            /// Insert a value for the prefix designated by ip and masklen. If prefix existed previously, the old value is returned.
             #[allow(unused_variables)]
             fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T>{
                 unimplemented!()
                 //self.inner.remove(&ip.nibbles(), masklen)
             }
 
-            /// Perform longest match lookup of ```ip``` and return the best matching prefix, designated by ip, masklen, along with its value.
             #[allow(unused_variables)]
             fn exact_match(&self, ip: $addr_type, masklen: u32) -> Option<&T> {
                 unimplemented!()
                 //self.inner.exact_match(&ip.nibbles(), masklen)
             }
 
-            /// Perform longest match lookup of ```ip``` and return the best matching prefix, designated by ip, masklen, along with its value.
             fn longest_match(&self, ip: $addr_type) -> Option<($addr_type, u32, &T)> {
                 match self.inner.longest_match(&ip.nibbles()) {
                     Some((bits_matched,value)) => Some((ip.mask(bits_matched), bits_matched, value)),
