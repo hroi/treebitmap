@@ -77,6 +77,25 @@ fn longest_match() {
     assert_eq!(result, None);
 }
 
+#[test]
+fn iter() {
+
+    let mut tbl = IpLookupTable::<Ipv4Addr,u32>::new();
+
+    let (ip_a, mask_a, value_a) = (Ipv4Addr::new( 10, 0,0,0),  8, 1);
+    let (ip_b, mask_b, value_b) = (Ipv4Addr::new(100,64,0,0), 24, 2);
+    let (ip_c, mask_c, value_c) = (Ipv4Addr::new(100,64,1,0), 24, 3);
+    tbl.insert(ip_a, mask_a, value_a);
+    tbl.insert(ip_b, mask_b, value_b);
+    tbl.insert(ip_c, mask_c, value_c);
+
+    let mut iter = tbl.iter();
+    assert_eq!(iter.next(), Some((ip_a, mask_a, &value_a)));
+    assert_eq!(iter.next(), Some((ip_b, mask_b, &value_b)));
+    assert_eq!(iter.next(), Some((ip_c, mask_c, &value_c)));
+    assert_eq!(iter.next(), None);
+}
+
 // Simulate a full Internet table.
 fn synth_internet_table(n: usize) -> IpLookupTable<Ipv4Addr, Ipv4Addr> {
     let mut tbl: IpLookupTable<Ipv4Addr,Ipv4Addr> = IpLookupTable::new();

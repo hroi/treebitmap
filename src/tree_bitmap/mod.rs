@@ -11,7 +11,7 @@ mod allocator;
 use self::node::{Node, MatchResult};
 use self::allocator::{Allocator, AllocatorHandle};
 
-#[derive(Debug)]
+//#[derive(Debug)]
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<Node>,
     results: Allocator<T>,
@@ -323,6 +323,92 @@ impl<T: Sized> TreeBitmap<T> {
         }
     }
 
+    pub fn iter(&self) -> Iter<T> {
+        let root_hdl = self.root_handle();
+        let root_node = self.trienodes.get(&root_hdl, 0).clone();
+        Iter{
+            inner: &self,
+            path: vec![PathElem{node: root_node, pos: 0}],
+            nibbles: vec![0],
+        }
+    }
+
+}
+
+#[derive(Debug)]
+struct PathElem {
+    node: Node,
+    pos: usize
+}
+
+pub struct Iter<'a, T: 'a> {
+    inner: &'a TreeBitmap<T>,
+    path: Vec<PathElem>,
+    nibbles: Vec<u8>,
+}
+
+static PREFIX_OF_BIT: [u8; 32] = [
+    //   0       1       2      3        4       5       6       7
+    0b0000, 0b0000, 0b1000, 0b0000, 0b0100, 0b1000, 0b1100, 0b0000,
+    //   8       9      10      11      12      13      14      15
+    0b0010, 0b0100, 0b0110, 0b1000, 0b1010, 0b1100, 0b1110,      0,
+    //  16      17      18      19      20      21      22      23
+    0b0000, 0b0001, 0b0010, 0b0011, 0b0100, 0b0101, 0b0110, 0b0111,
+    //  24      25      26      27      28      29      30      31
+    0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111,
+];
+
+impl<'a, T: 'a> Iterator for Iter<'a, T> {
+    type Item = (Vec<u8>, u32, &'a T); //(nibbles, masklen, &T)
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let mut path_elem = match self.path.pop() {
+                Some(elem) => elem,
+                None => return None
+            };
+            let cur_node = path_elem.node;
+            let mut cur_pos = path_elem.pos;
+            self.nibbles.pop();
+            // optim:
+            if cur_pos == 0 {
+                if cur_node.result_count() == 0 {
+                    path_elem.pos = 16;
+                    cur_pos = 16;
+                }
+            }
+            if path_elem.pos == 32 {
+                continue;
+            }
+            let nibble = PREFIX_OF_BIT[path_elem.pos];
+            let bitmap = 1 << (31 - path_elem.pos);
+
+            path_elem.pos += 1;
+            self.nibbles.push(nibble);
+            self.path.push(path_elem);
+            // match internal
+            if cur_pos < 16 || (cur_node.is_endnode()){
+                let match_result = cur_node.match_internal(bitmap);
+                match match_result {
+                    MatchResult::Match(result_hdl, result_index, matching_bit) => {
+                        let bits_matched = ((self.path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
+                        let value = self.inner.results.get(&result_hdl, result_index);
+                        return Some((self.nibbles.clone(), bits_matched, value));
+                    },
+                    _ => ()
+                }
+            } else {
+                match cur_node.match_external(bitmap) {
+                    MatchResult::Chase(child_hdl, child_index) => {
+                        let child_node = self.inner.trienodes.get(&child_hdl, child_index);
+                        self.nibbles.push(0);
+                        self.path.push(PathElem{node: *child_node, pos: 0});
+                    },
+                    _ => ()
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -330,7 +416,7 @@ mod tests{
     use super::*;
 
     #[test]
-    fn test_treebitmap_remove() {
+    fn remove() {
         let mut tbm: TreeBitmap<&str> = TreeBitmap::new();
         let (nibbles_a, mask_a) = (&[0, 10, 0,  0, 0,  0, 0, 0], 8);
         let (nibbles_b, mask_b) = (&[0, 10, 0, 10, 0, 10, 0, 0], 24);
@@ -345,5 +431,25 @@ mod tests{
         // foo should not exist, and therefore return None
         let value = tbm.remove(nibbles_b, mask_b);
         assert_eq!(value, None);
+    }
+
+    #[test]
+    fn iter() {
+        let mut tbm: TreeBitmap<u32> = TreeBitmap::new();
+        let (nibbles_a, mask_a) = (&[0], 0);
+        let (nibbles_b, mask_b) = (&[0, 10], 8);
+        let (nibbles_c, mask_c) = (&[0, 10, 0, 10, 0, 10], 24);
+        let (nibbles_d, mask_d) = (&[0, 10, 0, 10, 1, 11], 24);
+        tbm.insert(nibbles_a, mask_a, 1);
+        tbm.insert(nibbles_b, mask_b, 2);
+        tbm.insert(nibbles_c, mask_c, 3);
+        tbm.insert(nibbles_d, mask_d, 4);
+
+        let mut iter = tbm.iter();
+        assert_eq!(iter.next().unwrap().2, &1);
+        assert_eq!(iter.next().unwrap().2, &2);
+        assert_eq!(iter.next().unwrap().2, &3);
+        assert_eq!(iter.next().unwrap().2, &4);
+        assert_eq!(iter.next(), None);
     }
 }

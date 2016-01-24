@@ -9,8 +9,10 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address {
     type Nibbles;
-    /// Return a string of nibbles (4-bit words).
+    /// Convert to string of nibbles.
     fn nibbles(self) -> Self::Nibbles;
+    /// Convert from string of nibbles.
+    fn from_nibbles(nibbles: &[u8]) -> Self;
     /// Returns self masked to n bits.
     fn mask(self, masklen: u32) -> Self;
 }
@@ -26,6 +28,18 @@ impl Address for Ipv4Addr {
             ret[i*2+1] = bytes[i] & 0xf;
         }
         ret
+    }
+
+    fn from_nibbles(nibbles: &[u8]) -> Self {
+        let mut ip = 0u32;
+        let mut shifted = 0;
+        for nibble in nibbles {
+            ip <<= 4;
+            ip |= *nibble as u32;
+            shifted += 4;
+        }
+        ip <<= 32 - shifted;
+        Ipv4Addr::from(ip)
     }
 
     fn mask(self, masklen: u32) -> Self {
@@ -50,6 +64,23 @@ impl Address for Ipv6Addr {
             ret[i*2+1] = bytes[i] & 0xf;
         }
         ret
+    }
+
+    fn from_nibbles(nibbles: &[u8]) -> Self {
+        let mut ret: [u8; 16] = [0; 16];
+        for i in 0..nibbles.len() {
+            match i % 2 {
+                0 => {
+                    ret[i/2] = nibbles[i] << 4;
+                },
+                _ => {
+                    ret[i/2] |= nibbles[i];
+                },
+            }
+        }
+        unsafe{
+            mem::transmute(ret)
+        }
     }
 
     fn mask(self, masklen: u32) -> Self {
@@ -106,4 +137,18 @@ mod tests {
                                   0xc, 0xc, 0xc, 0xc, 0xd, 0xd, 0xd, 0xd,
                                   0xe, 0xe, 0xe, 0xe, 0xf, 0xf, 0xf, 0xf]);
     }
+
+    #[test]
+    fn address_ipv4_from_nibbles() {
+        let ip: Ipv4Addr = Address::from_nibbles(&[1,2,3,4,5,6,7,8]);
+        assert_eq!(ip.octets(), [0x12,0x34,0x56,0x78]);
+    }
+
+    #[test]
+    fn address_ipv6_from_nibbles() {
+        let ip: Ipv6Addr = Address::from_nibbles(&[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0]);
+        let expected = Ipv6Addr::new(0x123, 0x4567, 0x89ab, 0xcdef, 0xfedc, 0xba98, 0x7654, 0x3210);
+        assert_eq!(ip, expected);
+    }
+
 }

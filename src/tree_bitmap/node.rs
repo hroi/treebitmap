@@ -3,7 +3,6 @@
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
 
-use std::fmt;
 use super::allocator::AllocatorHandle;
 
 pub const INT_MASK: u32 = 0xffff0000;
@@ -116,6 +115,7 @@ const BIT_MEANING: &'static [&'static str] = &[
     "0000*", "0001*", "0010*", "0011*", "0100*", "0101*", "0110*", "0111*", "1000*", "1001*", "1010*", "1011*", "1100*", "1101*", "1110*", "1111*",
 ];
 
+use std::fmt;
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut int_nodes: Vec<&str> = Vec::new();
@@ -171,7 +171,6 @@ impl Node {
     }
 
     /// Is node blank?
-    #[inline]
     pub fn is_blank(&self) -> bool {
         self.bitmap == 0 && self.child_ptr == 0 && self.result_ptr == 0
     }
@@ -366,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trienode_match_segment() {
+    fn match_segment() {
         // case 1
         let mut node = Node::new();
         node.make_endnode();
@@ -387,7 +386,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_trienode_match_segment(b: &mut Bencher) {
+    fn bench_match_segment(b: &mut Bencher) {
         let mut node = Node::new();
         node.make_endnode();
         node.set_internal(MSB);      // *
@@ -437,11 +436,11 @@ mod tests {
 
     #[bench]
     fn bench_gen_bitmap(b: &mut Bencher) {
-        for item in &TEST_DATA {
-            let (mask, prefix) = *item;
-            b.iter(||{
+        b.iter(||{
+            for item in &TEST_DATA {
+                let (mask, prefix) = *item;
                 test::black_box(gen_bitmap(prefix, mask));
-            });
-        }
+            }
+        });
     }
 }

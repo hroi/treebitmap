@@ -104,6 +104,25 @@ pub trait IpLookupTableOps<Addr, T> {
     /// assert_eq!(result, Some((less_specific, 32, &"foo")));
     /// ```
     fn longest_match(&self, ip: Addr) -> Option<(Addr, u32, &T)>;
+
+    /// Returns iterator over prefixes and values.
+    /// # Example
+    /// ```
+    /// use treebitmap::{IpLookupTable, IpLookupTableOps};
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let mut table: IpLookupTable<Ipv6Addr,&str> = IpLookupTable::new();
+    /// let less_specific = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0);
+    /// let more_specific = Ipv6Addr::new(0x2001, 0xdb8, 0xdead, 0, 0, 0, 0, 0);
+    /// table.insert(less_specific, 32, "foo");
+    /// table.insert(more_specific, 48, "bar");
+    ///
+    /// let mut iter = table.iter();
+    /// assert_eq!(iter.next(), Some((less_specific, 32, &"foo")));
+    /// assert_eq!(iter.next(), Some((more_specific, 48, &"bar")));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    fn iter(&self) -> Iter<Addr, T>;
 }
 
 /// A fast, compressed IP lookup table.
@@ -135,6 +154,12 @@ impl<A, T> IpLookupTable<A, T> {
     }
 }
 
+/// Iterates over prefixes and associated values. The prefixes are returned in "tree"-order.
+pub struct Iter<'a, A, T: 'a> {
+    inner: tree_bitmap::Iter<'a, T>,
+    _addrtype: PhantomData<A>,
+}
+
 macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
@@ -157,7 +182,28 @@ macro_rules! impl_ops {
                     None => None
                 }
             }
+
+            fn iter(&self) -> Iter<$addr_type,T> {
+                Iter{
+                    inner: self.inner.iter(),
+                    _addrtype: PhantomData,
+                }
+            }
         }
+
+        impl<'a, T: 'a> Iterator for Iter<'a, $addr_type, T> {
+            type Item = ($addr_type, u32, &'a T);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self.inner.next() {
+                    Some((nibbles, masklen, value)) => {
+                        Some((Address::from_nibbles(&nibbles[..]), masklen, value))
+                    },
+                    None => None,
+                }
+            }
+        }
+
     }
 }
 
