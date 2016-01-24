@@ -1,3 +1,8 @@
+// Copyright 2016 Hroi Sigurdsson
+//
+// Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
+// This file may not be copied, modified, or distributed except according to those terms.
+
 //!
 //! To use these tests and benchmarks, make sure test/ contains bgp4-dump.txt and
 //! bgp6-dump.txt each containing a full dump of the current internet routing
