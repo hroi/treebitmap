@@ -159,13 +159,8 @@ impl<T: Sized> BucketVec<T> {
     //}
 }
 
-static LEN2BUCKET: [u32;33] = [
-    0, 0,
-    1,
-    2, 2,
-    3, 3, 3, 3,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+static LEN2BUCKET: [u32;33] = [0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8];
+
 
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
@@ -175,14 +170,6 @@ pub fn choose_bucket(len: u32) -> u32 {
     }
 }
 
-//#[inline]
-//pub fn choose_bucket2(len: u32) -> u32 {
-//    match len {
-//        0 => 0,
-//        _ => (32 - (len - 1).leading_zeros())
-//    }
-//}
-
 /// ```Allocator``` stores items in exponentially sized buckets (using ```BucketVec```s for backing).
 ///
 /// All interaction is done with an ```AllocatorHandle```used for tracking the collection size an location.
@@ -190,7 +177,7 @@ pub fn choose_bucket(len: u32) -> u32 {
 /// When a bucket becomes full, the contents are moved to a larger bucket. In this case the allocator will update the caller's pointer.
 #[derive(Debug)]
 pub struct Allocator<T: Sized> {
-    buckets: [BucketVec<T>; 6],
+    buckets: [BucketVec<T>; 9],
 }
 
 /// Tracks the size and location of the referenced collection.
@@ -218,15 +205,23 @@ impl<T: Sized> Allocator<T> {
     pub fn new() -> Allocator<T> {
         Allocator {
             buckets: [BucketVec::new(1), BucketVec::new(2), BucketVec::new(4),
-                      BucketVec::new(8), BucketVec::new(16), BucketVec::new(32)]
+                      BucketVec::new(6), BucketVec::new(8), BucketVec::new(12),
+                      BucketVec::new(16), BucketVec::new(24), BucketVec::new(32),]
         }
     }
 
     /// Initialize a new ```Allocator``` with specified capacity.
     pub fn with_capacity(cap: usize) -> Allocator<T> {
         Allocator {
-            buckets: [BucketVec::with_capacity(1, cap), BucketVec::with_capacity( 2, cap), BucketVec::with_capacity(4, cap),
-                      BucketVec::with_capacity(8, cap), BucketVec::with_capacity(16, cap), BucketVec::with_capacity(32, cap)]
+            buckets: [BucketVec::with_capacity(1, cap),
+                      BucketVec::with_capacity(2, cap),
+                      BucketVec::with_capacity(4, cap),
+                      BucketVec::with_capacity(6, cap),
+                      BucketVec::with_capacity(8, cap),
+                      BucketVec::with_capacity(12, cap),
+                      BucketVec::with_capacity(16, cap),
+                      BucketVec::with_capacity(24, cap),
+                      BucketVec::with_capacity(32, cap)]
         }
     }
 
@@ -313,7 +308,7 @@ impl<T: Sized> Allocator<T> {
 
         if bucket_index != next_bucket_index {
             // move to smaller bucket
-            debug_assert!(next_bucket_index < 5);
+            debug_assert!(next_bucket_index < self.buckets.len());
             let buckets_base_ptr: *mut BucketVec<T> = &mut self.buckets[0];
             let dst: &mut BucketVec<T> = unsafe {
                 mem::transmute(buckets_base_ptr.offset(next_bucket_index as isize))
