@@ -3,10 +3,13 @@
 
 //! # Fast IP lookup table for IPv4/IPv6 prefixes
 //!
-//! This crate provides an implementation of the Tree-Bitmap datastructure for fast IP lookups in software. It has very fast lookup times, and a small memory footprint.
-//! A full Ipv4 BGP table of > 600k entries fits is < 5 MB. A full Ipv6 BGP table of > 25k entries fits in < 1 MB.
+//! This crate provides a datastructure for fast IP address lookups.
+//! It aims at fast lookup times, and a small memory footprint.
+//! A full IPv4 BGP table of more than 600k entries fits in less than 5 MB. A full IPv6 BGP table of more than 25k entries fits in less than 1 MB.
 //!
-//! Based on the Tree-bitmap algorithm described by W. Eatherton, Z. Dittia, G. Varghes.
+//! Longest match lookups on full BGP IP tables take on the order of 100ns.
+//!
+//! The internal datastructure is based on the Tree-bitmap algorithm described by W. Eatherton, Z. Dittia, G. Varghes.
 //!
 
 #[macro_use]
@@ -57,6 +60,11 @@ impl<A, T> IpLookupTable<A, T> {
             _addrtype: PhantomData,
         }
     }
+
+    /// Return the bytes used by nodes and results.
+    fn mem_usage(&self) -> (usize, usize) {
+        self.inner.mem_usage()
+    }
 }
 
 macro_rules! impl_ops {
@@ -67,16 +75,12 @@ macro_rules! impl_ops {
                 self.inner.insert(&ip.nibbles(), masklen, value)
             }
 
-            #[allow(unused_variables)]
             fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T>{
-                unimplemented!()
-                //self.inner.remove(&ip.nibbles(), masklen)
+                self.inner.remove(&ip.nibbles(), masklen)
             }
 
-            #[allow(unused_variables)]
             fn exact_match(&self, ip: $addr_type, masklen: u32) -> Option<&T> {
-                unimplemented!()
-                //self.inner.exact_match(&ip.nibbles(), masklen)
+                self.inner.exact_match(&ip.nibbles(), masklen)
             }
 
             fn longest_match(&self, ip: $addr_type) -> Option<($addr_type, u32, &T)> {
@@ -96,7 +100,8 @@ impl_ops!(Ipv6Addr);
 mod tests {
     extern crate rand;
 
-    use self::rand::{Rng};
+    use self::rand::{Rng,SeedableRng};
+    use self::rand::distributions::{Weighted, WeightedChoice, IndependentSample};
 
     lazy_static! {
         static ref FULL_BGP_TABLE_IDENT: IpLookupTable<Ipv4Addr,(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
@@ -106,12 +111,27 @@ mod tests {
     }
 
     use super::*;
+    use super::address::Address;
     use test::{Bencher,black_box};
     use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
     use std::io::prelude::*;
     use std::io::{BufReader, Error};
     use std::fs::File;
+
+    #[test]
+    fn test_treebitmap_remove() {
+        let mut tbl = IpLookupTable::<Ipv4Addr,u32>::new();
+        tbl.insert(Ipv4Addr::new(10,0,0,0), 8, 1);
+        tbl.insert(Ipv4Addr::new(10,0,10,0), 24, 2);
+        let value = tbl.remove(Ipv4Addr::new(10,0,10,0), 24);
+        assert_eq!(value, Some(2));
+        let lookup_ip = Ipv4Addr::new(10,10,10,10);
+        let expected_ip = Ipv4Addr::new(10,0,0,0);
+        let lookup_result = tbl.longest_match(lookup_ip);
+        assert_eq!(lookup_result, Some((expected_ip, 8, &1)));
+
+    }
 
     #[test]
     fn test_treebitmap_insert() {
@@ -188,7 +208,7 @@ mod tests {
     }
 
     fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr,()>, Error> {
-        let mut tbm = IpLookupTable::<Ipv4Addr,()>::with_capacity(512);
+        let mut tbl = IpLookupTable::<Ipv4Addr,()>::with_capacity(512);
         let f = try!(File::open("test/bgp-dump.txt"));
         let r = BufReader::new(f);
         let mut i = 0;
@@ -202,10 +222,12 @@ mod tests {
                 let ip = Ipv4Addr::from_str(&line[..slash_offset]).unwrap();
                 let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
                 assert!(masklen <= 32);
-                tbm.insert(ip, masklen, ());
+                tbl.insert(ip, masklen, ());
             }
         }
-        Ok(tbm)
+        let (node_bytes, result_bytes) = tbl.mem_usage();
+        println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes", node_bytes, result_bytes);
+        Ok(tbl)
     }
 
     #[allow(dead_code)]
@@ -289,6 +311,105 @@ mod tests {
         assert_eq!(ret, Some((ip, 32, &(ip, 32))));
     }
 
+    fn synth_internet_table(n: usize) -> IpLookupTable<Ipv4Addr, Ipv4Addr> {
+        let mut tbl: IpLookupTable<Ipv4Addr,Ipv4Addr> = IpLookupTable::new();
+        let mut rng = rand::XorShiftRng::from_seed([1,2,3,4]);
+        // http://bgp.potaroo.net/as6447/ - Root Prefix Length Distributions
+        let mut masklen_distribution = vec![
+            Weighted {item:  8, weight: 1},
+            Weighted {item:  9, weight: 0},
+            Weighted {item: 10, weight: 1},
+            Weighted {item: 11, weight: 3},
+            Weighted {item: 12, weight: 9},
+            Weighted {item: 13, weight: 15},
+            Weighted {item: 14, weight: 32},
+            Weighted {item: 15, weight: 52},
+            Weighted {item: 16, weight: 355},
+            Weighted {item: 17, weight: 154},
+            Weighted {item: 18, weight: 245},
+            Weighted {item: 19, weight: 533},
+            Weighted {item: 20, weight: 676},
+            Weighted {item: 21, weight: 735},
+            Weighted {item: 22, weight: 1261},
+            Weighted {item: 23, weight: 807},
+            Weighted {item: 24, weight: 5117},
+            Weighted {item: 25, weight: 1},
+            Weighted {item: 26, weight: 0},
+            Weighted {item: 27, weight: 0},
+            Weighted {item: 28, weight: 0},
+            Weighted {item: 29, weight: 0},
+            Weighted {item: 30, weight: 1},
+            Weighted {item: 31, weight: 0},
+            Weighted {item: 32, weight: 1},
+        ];
+        let wc = WeightedChoice::new(&mut masklen_distribution);
+        for _ in 0..n {
+            let ipu: u32 = rng.gen_range(1<<24, 224<<24);
+            let ip = Ipv4Addr::from(ipu);
+            let masklen = wc.ind_sample(&mut rng);
+            tbl.insert(ip.mask(masklen), masklen, ip);
+        }
+        let (node_bytes, result_bytes) = tbl.mem_usage();
+        println!("nodes: {} bytes, results: {} bytes", node_bytes, result_bytes);
+        tbl
+    }
+
+    fn gen_random_table(n: usize) -> IpLookupTable<Ipv4Addr, Ipv4Addr> {
+        let mut tbl = IpLookupTable::<Ipv4Addr,Ipv4Addr>::new();
+        let mut rng = rand::weak_rng();
+        for _ in 0..n {
+            let ipu: u32 = rng.gen_range(1<<24, 224<<24);
+            let ip = Ipv4Addr::from(ipu);
+            let masklen: u32 = rng.gen_range(12, 32);
+            tbl.insert(ip.mask(masklen), masklen, ip);
+        }
+        tbl
+    }
+
+    #[test]
+    fn test_treebitmap_synthtable_rand_lookup() {
+        let tbl = synth_internet_table(500_000);
+        let mut rng = rand::weak_rng();
+        for _ in 0..100 {
+            let ipu: u32 = rng.gen_range(1<<24, 224<<24);
+            let ip = Ipv4Addr::from(ipu);
+            let result = tbl.longest_match(ip);
+            println!("{} -> {:?}", ip, result);
+        }
+    }
+
+    #[test]
+    fn test_treebitmap_rand_lookup() {
+        let tbl = gen_random_table(100_000);
+        let mut rng = rand::weak_rng();
+        for _ in 0..100 {
+            let ipu: u32 = rng.gen_range(1<<24, 224<<24);
+            let ip = Ipv4Addr::from(ipu);
+            let result = tbl.longest_match(ip);
+            println!("{} -> {:?}", ip, result);
+        }
+    }
+
+    #[bench]
+    fn bench_treebitmap_gen_random_table_1k(b: &mut Bencher) {
+        b.iter(|| {
+            black_box(gen_random_table(1_000));
+        });
+    }
+
+    #[bench]
+    fn bench_treebitmap_gen_random_table_10k(b: &mut Bencher) {
+        b.iter(|| {
+            black_box(gen_random_table(10_000));
+        });
+    }
+
+    #[bench]
+    fn bench_treebitmap_gen_random_table_100k(b: &mut Bencher) {
+        b.iter(|| {
+            black_box(gen_random_table(100_000));
+        });
+    }
 
     #[bench]
     fn bench_treebitmap_bgp_lookup_apple(b: &mut Bencher) {

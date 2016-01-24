@@ -181,6 +181,12 @@ impl Node {
         self.bitmap == 0 && self.child_ptr == 0 && self.result_ptr == 0
     }
 
+    /// Is node empty?
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.bitmap & END_BIT_MASK == 0
+    }
+
     /// Is node an end node?
     #[inline]
     pub fn is_endnode(&self) -> bool {
@@ -266,6 +272,21 @@ impl Node {
         self.bitmap |= bitmap
     }
 
+    /// Unset an internal bit.
+    ///
+    /// # Panics
+    /// + if an attempt is made to set an already set internal bit or any non-internal bit.
+    #[inline]
+    pub fn unset_internal(&mut self, bitmap: u32) {
+        debug_assert!(bitmap.count_ones() == 1, "unset_internal: bitmap must contain exactly one bit");
+        debug_assert!(bitmap & END_BIT == 0, "unset_internal: not permitted to set the endnode bit");
+        debug_assert!(self.bitmap & bitmap == bitmap, "unset_internal: bit already unset");
+        if !self.is_endnode() {
+            debug_assert!(bitmap & EXT_MASK == 0, "unset_internal: attempted to set external bit"); 
+        }
+        self.bitmap ^= bitmap
+    }
+
     /// Set an external bit.
     ///
     /// # Panics
@@ -278,6 +299,14 @@ impl Node {
         debug_assert!(self.bitmap & bitmap == 0, "set_external: not permitted to set an already set bit");
         debug_assert!(bitmap & INT_MASK == 0, "set_external: not permitted to set an internal bit");
         self.bitmap |= bitmap
+    }
+
+    pub fn unset_external(&mut self, bitmap: u32) {
+        debug_assert!(!self.is_endnode(), "unset_external: endnodes don't have external bits");
+        debug_assert!(bitmap & END_BIT == 0, "unset_external: not permitted to set the endnode bit");
+        debug_assert!(self.bitmap & bitmap == bitmap, "unset_external: not permitted to unset an already unset bit");
+        debug_assert!(bitmap & INT_MASK == 0, "unset_external: not permitted to set an internal bit");
+        self.bitmap ^= bitmap
     }
 
     /// Perform a match on segment/masklen.

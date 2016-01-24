@@ -48,7 +48,7 @@ impl<T: Sized> BucketVec<T> {
             None => {
                 self.buf.reserve(self.len as usize, self.spacing as usize);
                 if cfg!(debug_assertions) {
-                    unsafe{
+                    unsafe {
                         ptr::write_bytes(self.buf.ptr().offset(self.len as isize), 0, self.spacing as usize);
                     }
                 }
@@ -144,6 +144,11 @@ impl<T: Sized> BucketVec<T> {
         dst_slot
     }
 
+    pub fn mem_usage(&self) -> usize {
+        (mem::size_of::<T>() * self.buf.cap())
+            + (self.freelist.capacity() * mem::size_of::<u32>())
+    }
+
     //fn shrink_to_fit(&mut self) {
     //    self.buf.shrink_to_fit(self.len as usize);
     //}
@@ -214,17 +219,13 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
-    #[allow(dead_code)]
     /// Returns the amount of memory allocated, and the amount of memory allocated but not used.
-    pub fn mem_usage(&self) -> (usize, usize) {
+    pub fn mem_usage(&self) -> usize {
         let mut total = 0;
-        let mut wasted = 0;
         for buckvec in &self.buckets {
-            total += buckvec.buf.cap() * mem::size_of::<T>();
-            total += buckvec.freelist.capacity() * mem::size_of::<u32>();
-            wasted += buckvec.freelist.len() * mem::size_of::<T>();
+            total += buckvec.mem_usage();
         }
-        (total, wasted)
+        total
     }
 
     //pub fn shrink_to_fit(&mut self) {
@@ -240,6 +241,13 @@ impl<T: Sized> Allocator<T> {
             len: count,
             offset: slot
         }
+    }
+
+    pub fn free(&mut self, hdl: &mut AllocatorHandle) {
+        debug_assert!(hdl.len == 0, "tried to free non-empty collection");
+        let bucket_index = choose_bucket(hdl.len) as usize;
+        self.buckets[bucket_index].free_slot(hdl.offset);
+        hdl.offset = 0;
     }
 
     pub fn set(&mut self, hdl: &AllocatorHandle, index: u32, value: T) {
@@ -305,8 +313,8 @@ impl<T: Sized> Allocator<T> {
         hdl.offset = slot;
         hdl.len -= 1;
         ret
-
     }
+
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@ mod allocator;
 use self::node::{Node, MatchResult};
 use self::allocator::{Allocator, AllocatorHandle};
 
+#[derive(Debug)]
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<Node>,
     results: Allocator<T>,
@@ -47,7 +48,8 @@ impl<T: Sized> TreeBitmap<T> {
         debug_assert!(node.is_endnode(), "push_down: not an endnode");
         debug_assert!(node.child_ptr == 0);
         // count number of internal nodes in the first 15 bits (those that will remain in place).
-        let remove_at = (node.internal() & 0xffff0000).count_ones();
+        let internal_node_count = (node.internal() & 0xffff0000).count_ones();
+        let remove_at = internal_node_count;
         // count how many nodes to push down
         //let nodes_to_pushdown = (node.bitmap & 0x0000ffff).count_ones();
         let nodes_to_pushdown = (node.internal() & 0x0000ffff).count_ones();
@@ -72,13 +74,21 @@ impl<T: Sized> TreeBitmap<T> {
             // the result data may have moved to a smaller bucket, update the result pointer
             node.result_ptr = result_hdl.offset;
             node.child_ptr = child_node_hdl.offset;
+            // no results from this node remain, free the result slot
+            if internal_node_count == 0 && nodes_to_pushdown > 0 {
+                self.results.free(&mut result_hdl);
+                node.result_ptr = 0;
+            }
         }
-        // done!
         node.make_normalnode();
         // note: we do not need to touch the external bits, they are correct as are
     }
 
-    /// longest match lookup of ```ip```. Returns matched ip as Ipv4Addr, bits matched as u32, and reference to T.
+    pub fn exact_match(&self, nibbles: &[u8], masklen: u32) -> Option<&T> {
+        unimplemented!()
+    }
+
+    /// longest match lookup of ```nibbles```. Returns bits matched as u32, and reference to T.
     pub fn longest_match(&self, nibbles: &[u8]) -> Option<(u32, &T)> {
         let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
@@ -219,18 +229,63 @@ impl<T: Sized> TreeBitmap<T> {
         }
     }
 
-    ///// Remove prefix. Returns existing value if the prefix previously existed.
-    //pub fn remove(&mut self, ip: Ipv4Addr, masklen: u32) -> Option<T> {
-    //    let nibbles = u32::from(ip).nibbles();
-    //    let mut cur_hdl = self.root_handle();
-    //    let mut cur_index = 0;
-    //    let mut bits_left = masklen;
-    //    let mut ret = None;
-    //    loop {
-    //        
-    //    }
-    //    ret
-    //}
+    pub fn mem_usage(&self) -> (usize,usize) {
+        let node_bytes = self.trienodes.mem_usage();
+        let result_bytes = self.results.mem_usage();
+        (node_bytes, result_bytes)
+    }
+
+    /// Remove prefix. Returns existing value if the prefix previously existed.
+    pub fn remove(&mut self, nibbles: &[u8], masklen: u32) -> Option<T> {
+        let mut root_hdl = self.root_handle();
+        let mut root_node = self.trienodes.get(&root_hdl, 0).clone();
+        let ret = self.remove_child(&mut root_node, nibbles, masklen);
+        self.trienodes.set(&mut root_hdl, 0, root_node.clone());
+        ret
+    }
+
+    // remove child and result from node
+    fn remove_child(&mut self, node: &mut Node, nibbles: &[u8], masklen: u32) -> Option<T>{
+        let nibble = nibbles[0];
+        let bitmap = node::gen_bitmap(nibble, cmp::min(masklen, 4)) & node::END_BIT_MASK;
+        let reached_final_node = masklen < 4 || (node.is_endnode() && masklen == 4);
+        if reached_final_node {
+            match node.match_internal(bitmap) {
+                MatchResult::Match(mut result_hdl, result_index, _) => {
+                    node.unset_internal(bitmap);
+                    let ret = self.results.remove(&mut result_hdl, result_index);
+                    if node.result_count() == 0 {
+                        self.results.free(&mut result_hdl);
+                    }
+                    node.result_ptr = result_hdl.offset;
+                    return Some(ret);
+                },
+                _ => return None
+            }
+        }
+        match node.match_external(bitmap) {
+            MatchResult::Chase(mut child_node_hdl, index) => {
+                let mut child_node = self.trienodes.get(&child_node_hdl, index).clone();
+                let ret = self.remove_child(&mut child_node, &nibbles[1..], masklen - 4);
+
+                if child_node.child_count() == 0 && !child_node.is_endnode() {
+                    child_node.make_endnode();
+                }
+                if child_node.is_empty() {
+                    self.trienodes.remove(&mut child_node_hdl, 0);
+                    self.trienodes.free(&mut child_node_hdl);
+                    self.trienodes.set(&mut child_node_hdl, 0, Node::new());
+                    node.unset_external(bitmap);
+                    node.child_ptr = 0;
+                } else {
+                    node.child_ptr = child_node_hdl.offset;
+                    self.trienodes.set(&mut child_node_hdl, index, child_node.clone());
+                }
+                return ret;
+            },
+            _ => return None
+        }
+    }
 
     ///// Shrinks all internal buffers to fit.
     //pub fn shrink_to_fit(&mut self) {
@@ -241,5 +296,25 @@ impl<T: Sized> TreeBitmap<T> {
 
 #[cfg(test)]
 mod tests{
-    // TODO: add internal triebitmap tests here.
+    use super::*;
+    use address::Address;
+    use std::net::{Ipv4Addr,Ipv6Addr};
+
+    #[test]
+    fn test_treebitmap_remove() {
+        let mut tbm: TreeBitmap<u32> = TreeBitmap::new();
+        let (ip_a, mask_a) = (Ipv4Addr::new(10,0,0,0), 8);
+        let (ip_b, mask_b) = (Ipv4Addr::new(10,10,10,0), 24);
+        let nibbles_a = ip_a.nibbles();
+        let nibbles_b = ip_b.nibbles();
+        tbm.insert(&nibbles_a, mask_a, 1);
+        println!("before insert: {:#?}", tbm);
+        tbm.insert(&nibbles_b, mask_b, 2);
+        println!("before remove: {:#?}", tbm);
+        let value = tbm.remove(&nibbles_b, mask_b);
+        assert_eq!(value, Some(2));
+        println!("after remove: {:#?}", tbm);
+        let lookup_result = tbm.longest_match(&nibbles_b);
+        assert_eq!(lookup_result, Some((mask_a, &1)));
+    }
 }
