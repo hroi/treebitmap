@@ -11,16 +11,6 @@ pub const EXT_MASK: u32 = 0x0000ffff;
 pub const END_BIT:  u32 = 1 << 16;
 pub const END_BIT_MASK: u32 = !END_BIT; // all bits except the end node bit
 
-trait BitsSetBefore {
-    fn bits_set_before(self, index: u32) -> u32;
-}
-
-impl BitsSetBefore for u32 {
-    fn bits_set_before(self, index: u32) -> u32 {
-        (self >> (32 - index)).count_ones()
-    }
-}
-
 type Table = [[u32; 16];5];
 const IS_END_NODE: u32 = 1<<16;
 static INTERNAL_LOOKUP_TABLE: Table = [
