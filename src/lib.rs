@@ -80,7 +80,9 @@ pub trait IpLookupTableOps<Addr, T> {
     /// assert_eq!(table.exact_match(prefix, masklen), Some(&"foo"));
     /// // differing mask
     /// assert_eq!(table.exact_match(prefix, 48), None);
+    /// ```
     fn exact_match(&self, ip: Addr, masklen: u32) -> Option<&T>;
+
     /// Perform longest match lookup of ```ip``` and return the best matching prefix, designated by ip, masklen, along with its value.
     /// # Example
     /// ```
