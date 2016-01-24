@@ -84,10 +84,6 @@ impl<T: Sized> TreeBitmap<T> {
         // note: we do not need to touch the external bits, they are correct as are
     }
 
-    pub fn exact_match(&self, nibbles: &[u8], masklen: u32) -> Option<&T> {
-        unimplemented!()
-    }
-
     /// longest match lookup of ```nibbles```. Returns bits matched as u32, and reference to T.
     pub fn longest_match(&self, nibbles: &[u8]) -> Option<(u32, &T)> {
         let mut cur_hdl = self.root_handle();
@@ -130,7 +126,7 @@ impl<T: Sized> TreeBitmap<T> {
 
         match best_match {
             Some((result_hdl, result_index)) => {
-                debug_assert!(bits_matched <= 32, format!("matched {} bits?", bits_matched));
+                //debug_assert!(bits_matched <= 32, format!("matched {} bits?", bits_matched));
                 return Some((bits_matched, self.results.get(&result_hdl, result_index)));
             },
             None => return None,
@@ -235,8 +231,41 @@ impl<T: Sized> TreeBitmap<T> {
         (node_bytes, result_bytes)
     }
 
+    pub fn exact_match(&self, nibbles: &[u8], masklen: u32) -> Option<&T> {
+        let mut cur_hdl = self.root_handle();
+        let mut cur_index = 0;
+        let mut bits_left = masklen;
+
+        for nibble in nibbles {
+            println!("nibble: {}, bits_left: {}", nibble, bits_left);
+            let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
+            let bitmap = node::gen_bitmap(*nibble, cmp::min(bits_left, 4)) & node::END_BIT_MASK;
+            let reached_final_node = bits_left < 4 || (cur_node.is_endnode() && bits_left == 4);
+
+            if reached_final_node {
+                match cur_node.match_internal(bitmap) {
+                    MatchResult::Match(mut result_hdl, result_index, _) => {
+                        return Some(self.results.get(&mut result_hdl, result_index));
+                    },
+                    _ => return None
+                }
+            }
+
+            match cur_node.match_external(bitmap) {
+                MatchResult::Chase(child_hdl, child_index) => {
+                    cur_hdl = child_hdl;
+                    cur_index = child_index;
+                    bits_left -= 4;
+                },
+                _ => return None
+            }
+        }
+        None
+    }
+
     /// Remove prefix. Returns existing value if the prefix previously existed.
     pub fn remove(&mut self, nibbles: &[u8], masklen: u32) -> Option<T> {
+        debug_assert!(nibbles.len() >= (masklen/4) as usize);
         let mut root_hdl = self.root_handle();
         let mut root_node = self.trienodes.get(&root_hdl, 0).clone();
         let ret = self.remove_child(&mut root_node, nibbles, masklen);
@@ -249,6 +278,7 @@ impl<T: Sized> TreeBitmap<T> {
         let nibble = nibbles[0];
         let bitmap = node::gen_bitmap(nibble, cmp::min(masklen, 4)) & node::END_BIT_MASK;
         let reached_final_node = masklen < 4 || (node.is_endnode() && masklen == 4);
+
         if reached_final_node {
             match node.match_internal(bitmap) {
                 MatchResult::Match(mut result_hdl, result_index, _) => {
@@ -263,6 +293,7 @@ impl<T: Sized> TreeBitmap<T> {
                 _ => return None
             }
         }
+
         match node.match_external(bitmap) {
             MatchResult::Chase(mut child_node_hdl, index) => {
                 let mut child_node = self.trienodes.get(&child_node_hdl, index).clone();
@@ -287,34 +318,27 @@ impl<T: Sized> TreeBitmap<T> {
         }
     }
 
-    ///// Shrinks all internal buffers to fit.
-    //pub fn shrink_to_fit(&mut self) {
-    //    self.trienodes.shrink_to_fit();
-    //    self.results.shrink_to_fit();
-    //}
 }
 
 #[cfg(test)]
 mod tests{
     use super::*;
-    use address::Address;
-    use std::net::{Ipv4Addr,Ipv6Addr};
 
     #[test]
     fn test_treebitmap_remove() {
-        let mut tbm: TreeBitmap<u32> = TreeBitmap::new();
-        let (ip_a, mask_a) = (Ipv4Addr::new(10,0,0,0), 8);
-        let (ip_b, mask_b) = (Ipv4Addr::new(10,10,10,0), 24);
-        let nibbles_a = ip_a.nibbles();
-        let nibbles_b = ip_b.nibbles();
-        tbm.insert(&nibbles_a, mask_a, 1);
-        println!("before insert: {:#?}", tbm);
-        tbm.insert(&nibbles_b, mask_b, 2);
-        println!("before remove: {:#?}", tbm);
-        let value = tbm.remove(&nibbles_b, mask_b);
-        assert_eq!(value, Some(2));
-        println!("after remove: {:#?}", tbm);
-        let lookup_result = tbm.longest_match(&nibbles_b);
-        assert_eq!(lookup_result, Some((mask_a, &1)));
+        let mut tbm: TreeBitmap<&str> = TreeBitmap::new();
+        let (nibbles_a, mask_a) = (&[0, 10, 0,  0, 0,  0, 0, 0], 8);
+        let (nibbles_b, mask_b) = (&[0, 10, 0, 10, 0, 10, 0, 0], 24);
+        tbm.insert(nibbles_a, mask_a, "foo");
+        tbm.insert(nibbles_b, mask_b, "bar");
+        {
+            let value = tbm.remove(nibbles_b, mask_b);
+            assert_eq!(value, Some("bar"));
+            let lookup_result = tbm.longest_match(nibbles_b);
+            assert_eq!(lookup_result, Some((mask_a, &"foo")));
+        }
+        // foo should not exist, and therefore return None
+        let value = tbm.remove(nibbles_b, mask_b);
+        assert_eq!(value, None);
     }
 }

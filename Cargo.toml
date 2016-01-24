@@ -3,8 +3,9 @@ name = "treebitmap"
 version = "0.1.0"
 authors = ["Hroi Sigurdsson <hroi@asdf.dk>"]
 
-[dependencies]
 [dev-dependencies]
 rand = "0.3.*"
 lazy_static = "0.1.*"
 
+[features]
+full-bgp-tests = []

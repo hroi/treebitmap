@@ -154,7 +154,13 @@ impl<T: Sized> BucketVec<T> {
     //}
 }
 
-static LEN2BUCKET: [u32;33] = [0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+static LEN2BUCKET: [u32;33] = [
+    0, 0,
+    1,
+    2, 2,
+    3, 3, 3, 3,
+    4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
 
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
@@ -323,7 +329,7 @@ mod tests {
     use test::{Bencher,black_box};
 
     #[test]
-    fn test_ralloc_bucketvec_move_to() {
+    fn bucketvec_move_to() {
         let spacing = 32;
         let mut a: BucketVec<u32> = BucketVec::new(spacing);
         let mut b: BucketVec<u32> = BucketVec::new(spacing);
@@ -335,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ralloc_bucketvec_get_slot_entry() {
+    fn bucketvec_get_slot_entry() {
         let spacing = 16;
         let mut bucket: BucketVec<u32> = BucketVec::new(spacing);
         let slot = bucket.alloc_slot();
@@ -348,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ralloc_bucketvec_insert_slot_entry() {
+    fn bucketvec_insert_slot_entry() {
         let spacing = 16;
         let mut bucket: BucketVec<u32> = BucketVec::new(spacing);
         let slot = bucket.alloc_slot();
@@ -361,18 +367,18 @@ mod tests {
     }
 
     #[test]
-    fn test_ralloc_allocator_new() {
+    fn allocator_new() {
         Allocator::<u32>::new();
     }
 
     #[test]
-    fn test_ralloc_allocator_alloc1() {
+    fn allocator_alloc1() {
         let mut alloc = Allocator::<u32>::new();
         let _ = alloc.alloc(1);
     }
 
     #[test]
-    fn test_ralloc_allocator_fill() {
+    fn allocator_fill() {
         let mut alloc = Allocator::<u32>::new();
         let mut hdl = alloc.alloc(0);
         for i in 0..32 {
@@ -387,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ralloc_allocator_drain() {
+    fn allocator_drain() {
         let mut alloc = Allocator::<u64>::new();
         let mut hdl = alloc.alloc(0);
         assert!(hdl.len == 0);
@@ -404,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ralloc_allocator_set() {
+    fn allocator_set() {
         let mut alloc = Allocator::<u32>::new();
         let hdl = alloc.alloc(32);
         for i in 0..32 {
@@ -417,7 +423,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_choose_bucket_32(b: &mut Bencher) {
+    fn choose_bucket_32(b: &mut Bencher) {
         b.iter(|| {
             for i in 0..32 {
                 black_box(choose_bucket(i));
@@ -426,7 +432,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_set(b: &mut Bencher) {
+    fn alloc_set(b: &mut Bencher) {
         let mut alloc: Allocator<u32> = Allocator::new();
         let hdl = alloc.alloc(4);
         b.iter(|| {
@@ -435,7 +441,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_01(b: &mut Bencher) {
+    fn alloc_and_insert_01(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(0);
@@ -444,7 +450,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_02(b: &mut Bencher) {
+    fn alloc_and_insert_02(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(1);
@@ -453,7 +459,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_04(b: &mut Bencher) {
+    fn alloc_and_insert_04(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(2);
@@ -462,7 +468,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_08(b: &mut Bencher) {
+    fn alloc_and_insert_08(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(4);
@@ -471,7 +477,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_16(b: &mut Bencher) {
+    fn alloc_and_insert_16(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(8);
@@ -480,7 +486,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ralloc_alloc_and_insert_32(b: &mut Bencher) {
+    fn alloc_and_insert_32(b: &mut Bencher) {
         let mut alloc = Allocator::<u32>::new();
         b.iter(|| {
             let mut hdl = alloc.alloc(16);
