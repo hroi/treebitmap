@@ -128,6 +128,22 @@ fn loadv4() {
     assert_eq!(mask, 24);
 }
 
+#[bench]
+fn iterv4(b: &mut Bencher) {
+    b.iter(|| {
+        for (prefix, masklen, value) in FULL_BGP_TABLE_IDENT.iter() {
+            assert_eq!((prefix, masklen), *value);
+        }
+    });
+}
+
+#[test]
+fn iterv4_print() {
+    for (prefix, masklen, _) in FULL_BGP_TABLE_UNIT.iter() {
+        println!("{}/{}", prefix, masklen);
+    }
+}
+
 #[test]
 fn loadv6() {
     let _ = load_bgp6_dump_light(0).unwrap();

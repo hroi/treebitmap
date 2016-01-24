@@ -5,6 +5,7 @@
 
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::cmp::min;
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address {
@@ -31,15 +32,24 @@ impl Address for Ipv4Addr {
     }
 
     fn from_nibbles(nibbles: &[u8]) -> Self {
-        let mut ip = 0u32;
-        let mut shifted = 0;
-        for nibble in nibbles {
-            ip <<= 4;
-            ip |= *nibble as u32;
-            shifted += 4;
+        let mut ret: [u8; 4] = [0; 4];
+        let lim = min(ret.len()*2, nibbles.len());
+        for i in 0..lim {
+            if i == ret.len()*2 {
+                break;
+            }
+            match i % 2 {
+                0 => {
+                    ret[i/2] = nibbles[i] << 4;
+                },
+                _ => {
+                    ret[i/2] |= nibbles[i];
+                },
+            }
         }
-        ip <<= 32 - shifted;
-        Ipv4Addr::from(ip)
+        unsafe{
+            mem::transmute(ret)
+        }
     }
 
     fn mask(self, masklen: u32) -> Self {
@@ -68,7 +78,8 @@ impl Address for Ipv6Addr {
 
     fn from_nibbles(nibbles: &[u8]) -> Self {
         let mut ret: [u8; 16] = [0; 16];
-        for i in 0..nibbles.len() {
+        let lim = min(ret.len()*2, nibbles.len());
+        for i in 0..lim {
             match i % 2 {
                 0 => {
                     ret[i/2] = nibbles[i] << 4;
