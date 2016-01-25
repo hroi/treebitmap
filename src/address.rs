@@ -35,9 +35,6 @@ impl Address for Ipv4Addr {
         let mut ret: [u8; 4] = [0; 4];
         let lim = min(ret.len()*2, nibbles.len());
         for i in 0..lim {
-            if i == ret.len()*2 {
-                break;
-            }
             match i % 2 {
                 0 => {
                     ret[i/2] = nibbles[i] << 4;
