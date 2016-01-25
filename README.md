@@ -8,3 +8,7 @@ The internal datastructure is based on the Tree-bitmap algorithm described by W.
 ## Documentation
 
 Rustdoc: https://hroi.github.io/treebitmap/
+
+## Requirements
+
+Treebitmap uses ```RawVec``` for its allocation, which requires Rust nightly for now.
