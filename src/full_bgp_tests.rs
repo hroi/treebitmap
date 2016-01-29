@@ -154,11 +154,10 @@ fn loadv6() {
 #[test]
 // check that the values returned match what was in the key
 fn longest_match4_random_id_check() {
-    let ref tbm = FULL_BGP_TABLE_IDENT;
     let mut rng = rand::weak_rng();
     for _ in 0..10000 {
         let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
-        let result = tbm.longest_match(ip);
+        let result = FULL_BGP_TABLE_IDENT.longest_match(ip);
         println!("lookup({}) -> {:?}", ip, result);
         if let Some((prefix, masklen, val)) = result {
             let (orig_prefix, orig_masklen) = *val;

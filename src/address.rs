@@ -24,9 +24,9 @@ impl Address for Ipv4Addr {
     fn nibbles(self) -> Self::Nibbles {
         let mut ret: Self::Nibbles = unsafe{mem::uninitialized()};
         let bytes: [u8;4] = unsafe {mem::transmute(self)};
-        for i in 0..bytes.len() {
-            ret[i*2]   = bytes[i] >> 4;
-            ret[i*2+1] = bytes[i] & 0xf;
+        for (i, byte) in bytes.iter().enumerate() {
+            ret[i*2]   = byte >> 4;
+            ret[i*2+1] = byte & 0xf;
         }
         ret
     }
@@ -34,13 +34,13 @@ impl Address for Ipv4Addr {
     fn from_nibbles(nibbles: &[u8]) -> Self {
         let mut ret: [u8; 4] = [0; 4];
         let lim = min(ret.len()*2, nibbles.len());
-        for i in 0..lim {
+        for (i, nibble) in nibbles.iter().enumerate().take(lim) {
             match i % 2 {
                 0 => {
-                    ret[i/2] = nibbles[i] << 4;
+                    ret[i/2] = *nibble << 4;
                 },
                 _ => {
-                    ret[i/2] |= nibbles[i];
+                    ret[i/2] |= *nibble;
                 },
             }
         }
@@ -66,9 +66,9 @@ impl Address for Ipv6Addr {
     fn nibbles(self) -> Self::Nibbles {
         let mut ret: Self::Nibbles = unsafe{mem::uninitialized()};
         let bytes: [u8;16] = unsafe {mem::transmute(self)};
-        for i in 0..bytes.len() {
-            ret[i*2]   = bytes[i] >> 4;
-            ret[i*2+1] = bytes[i] & 0xf;
+        for (i, byte) in bytes.iter().enumerate() {
+            ret[i*2]   = byte >> 4;
+            ret[i*2+1] = byte & 0xf;
         }
         ret
     }
@@ -76,13 +76,13 @@ impl Address for Ipv6Addr {
     fn from_nibbles(nibbles: &[u8]) -> Self {
         let mut ret: [u8; 16] = [0; 16];
         let lim = min(ret.len()*2, nibbles.len());
-        for i in 0..lim {
+        for (i, nibble) in nibbles.iter().enumerate().take(lim) {
             match i % 2 {
                 0 => {
-                    ret[i/2] = nibbles[i] << 4;
+                    ret[i/2] = *nibble << 4;
                 },
                 _ => {
-                    ret[i/2] |= nibbles[i];
+                    ret[i/2] |= *nibble;
                 },
             }
         }

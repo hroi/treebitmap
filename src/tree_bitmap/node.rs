@@ -121,9 +121,9 @@ impl fmt::Debug for Node {
         let mut int_nodes: Vec<&str> = Vec::new();
         let mut child_nodes: Vec<u32> = Vec::new();
         let mut selector = 1<<31;
-        for i in 0..32 {
+        for meaning in BIT_MEANING {
             if self.internal() & selector > 0 {
-                int_nodes.push(BIT_MEANING[i]);
+                int_nodes.push(meaning);
             }
             selector >>= 1;
         }

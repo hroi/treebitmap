@@ -101,15 +101,12 @@ impl<T: Sized> TreeBitmap<T> {
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
             let match_mask = unsafe {*node::MATCH_MASKS.get_unchecked(*nibble as usize)};
 
-            match cur_node.match_internal(match_mask) {
-                MatchResult::Match(result_hdl, result_index, matching_bit_index) => {
-                    bits_matched = bits_searched;
-                    unsafe {
-                        bits_matched += *node::BIT_MATCH.get_unchecked(matching_bit_index as usize);
-                    }
-                    best_match = Some((result_hdl, result_index));
-                },
-                _ => ()
+            if let MatchResult::Match(result_hdl, result_index, matching_bit_index) = cur_node.match_internal(match_mask) {
+                bits_matched = bits_searched;
+                unsafe {
+                    bits_matched += *node::BIT_MATCH.get_unchecked(matching_bit_index as usize);
+                }
+                best_match = Some((result_hdl, result_index));
             }
 
             if cur_node.is_endnode() {
@@ -131,10 +128,9 @@ impl<T: Sized> TreeBitmap<T> {
 
         match best_match {
             Some((result_hdl, result_index)) => {
-                //debug_assert!(bits_matched <= 32, format!("matched {} bits?", bits_matched));
-                return Some((bits_matched, self.results.get(&result_hdl, result_index)));
+                Some((bits_matched, self.results.get(&result_hdl, result_index)))
             },
-            None => return None,
+            None => None,
         }
     }
 
@@ -180,7 +176,7 @@ impl<T: Sized> TreeBitmap<T> {
 
                 if cur_node.internal() & (bitmap & node::END_BIT_MASK) > 0 {
                     // key already exists!
-                    ret = Some(self.results.replace(&mut result_hdl, result_index - 1, value));
+                    ret = Some(self.results.replace(&result_hdl, result_index - 1, value));
                 } else {
                     cur_node.set_internal(bitmap & node::END_BIT_MASK);
                     self.results.insert(&mut result_hdl, result_index, value); // add result
@@ -242,15 +238,14 @@ impl<T: Sized> TreeBitmap<T> {
         let mut bits_left = masklen;
 
         for nibble in nibbles {
-            println!("nibble: {}, bits_left: {}", nibble, bits_left);
             let cur_node = self.trienodes.get(&cur_hdl, cur_index).clone();
             let bitmap = node::gen_bitmap(*nibble, cmp::min(bits_left, 4)) & node::END_BIT_MASK;
             let reached_final_node = bits_left < 4 || (cur_node.is_endnode() && bits_left == 4);
 
             if reached_final_node {
                 match cur_node.match_internal(bitmap) {
-                    MatchResult::Match(mut result_hdl, result_index, _) => {
-                        return Some(self.results.get(&mut result_hdl, result_index));
+                    MatchResult::Match(result_hdl, result_index, _) => {
+                        return Some(self.results.get(&result_hdl, result_index));
                     },
                     _ => return None
                 }
@@ -271,10 +266,10 @@ impl<T: Sized> TreeBitmap<T> {
     /// Remove prefix. Returns existing value if the prefix previously existed.
     pub fn remove(&mut self, nibbles: &[u8], masklen: u32) -> Option<T> {
         debug_assert!(nibbles.len() >= (masklen/4) as usize);
-        let mut root_hdl = self.root_handle();
+        let root_hdl = self.root_handle();
         let mut root_node = self.trienodes.get(&root_hdl, 0).clone();
         let ret = self.remove_child(&mut root_node, nibbles, masklen);
-        self.trienodes.set(&mut root_hdl, 0, root_node.clone());
+        self.trienodes.set(&root_hdl, 0, root_node.clone());
         ret
     }
 
@@ -299,27 +294,26 @@ impl<T: Sized> TreeBitmap<T> {
             }
         }
 
-        match node.match_external(bitmap) {
-            MatchResult::Chase(mut child_node_hdl, index) => {
-                let mut child_node = self.trienodes.get(&child_node_hdl, index).clone();
-                let ret = self.remove_child(&mut child_node, &nibbles[1..], masklen - 4);
+        if let MatchResult::Chase(mut child_node_hdl, index) = node.match_external(bitmap) {
+            let mut child_node = self.trienodes.get(&child_node_hdl, index).clone();
+            let ret = self.remove_child(&mut child_node, &nibbles[1..], masklen - 4);
 
-                if child_node.child_count() == 0 && !child_node.is_endnode() {
-                    child_node.make_endnode();
-                }
-                if child_node.is_empty() {
-                    self.trienodes.remove(&mut child_node_hdl, 0);
-                    self.trienodes.free(&mut child_node_hdl);
-                    self.trienodes.set(&mut child_node_hdl, 0, Node::new());
-                    node.unset_external(bitmap);
-                    node.child_ptr = 0;
-                } else {
-                    node.child_ptr = child_node_hdl.offset;
-                    self.trienodes.set(&mut child_node_hdl, index, child_node.clone());
-                }
-                return ret;
-            },
-            _ => return None
+            if child_node.child_count() == 0 && !child_node.is_endnode() {
+                child_node.make_endnode();
+            }
+            if child_node.is_empty() {
+                self.trienodes.remove(&mut child_node_hdl, 0);
+                self.trienodes.free(&mut child_node_hdl);
+                self.trienodes.set(&child_node_hdl, 0, Node::new());
+                node.unset_external(bitmap);
+                node.child_ptr = 0;
+            } else {
+                node.child_ptr = child_node_hdl.offset;
+                self.trienodes.set(&child_node_hdl, index, child_node.clone());
+            }
+            ret
+        } else {
+            None
         }
     }
 
@@ -371,11 +365,9 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
             let mut cur_pos = path_elem.pos;
             self.nibbles.pop();
             // optim:
-            if cur_pos == 0 {
-                if cur_node.result_count() == 0 {
-                    path_elem.pos = 16;
-                    cur_pos = 16;
-                }
+            if cur_pos == 0 && cur_node.result_count() == 0 {
+                path_elem.pos = 16;
+                cur_pos = 16;
             }
             if path_elem.pos == 32 {
                 continue;
@@ -389,22 +381,16 @@ impl<'a, T: 'a> Iterator for Iter<'a, T> {
             // match internal
             if cur_pos < 16 || (cur_node.is_endnode()){
                 let match_result = cur_node.match_internal(bitmap);
-                match match_result {
-                    MatchResult::Match(result_hdl, result_index, matching_bit) => {
-                        let bits_matched = ((self.path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
-                        let value = self.inner.results.get(&result_hdl, result_index);
-                        return Some((self.nibbles.clone(), bits_matched, value));
-                    },
-                    _ => ()
+                if let MatchResult::Match(result_hdl, result_index, matching_bit) = match_result {
+                    let bits_matched = ((self.path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
+                    let value = self.inner.results.get(&result_hdl, result_index);
+                    return Some((self.nibbles.clone(), bits_matched, value));
                 }
             } else {
-                match cur_node.match_external(bitmap) {
-                    MatchResult::Chase(child_hdl, child_index) => {
-                        let child_node = self.inner.trienodes.get(&child_hdl, child_index);
-                        self.nibbles.push(0);
-                        self.path.push(PathElem{node: *child_node, pos: 0});
-                    },
-                    _ => ()
+                if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
+                    let child_node = self.inner.trienodes.get(&child_hdl, child_index);
+                    self.nibbles.push(0);
+                    self.path.push(PathElem{node: *child_node, pos: 0});
                 }
             }
         }
