@@ -69,8 +69,6 @@ fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr,()>, Error> 
             tbl.insert(ip, masklen, ());
         }
     }
-    let (node_bytes, result_bytes) = tbl.mem_usage();
-    println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes", node_bytes, result_bytes);
     Ok(tbl)
 }
 
@@ -121,9 +119,13 @@ fn load_bgp_dump(limit: u32) -> Result<IpLookupTable<Ipv4Addr, (Ipv4Addr, u32)>,
 
 #[test]
 fn loadv4() {
-    let tbm = load_bgp_dump_light(0).unwrap();
+    let tbl = load_bgp_dump_light(0).unwrap();
+
+    let (node_bytes, result_bytes) = tbl.mem_usage();
+    println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes", node_bytes, result_bytes);
+
     let google_dns = Ipv4Addr::new(8,8,8,8);
-    let (prefix, mask, _)= tbm.longest_match(google_dns).unwrap();
+    let (prefix, mask, _)= tbl.longest_match(google_dns).unwrap();
     assert_eq!(prefix, Ipv4Addr::new(8,8,8,0));
     assert_eq!(mask, 24);
 }
@@ -151,7 +153,7 @@ fn loadv6() {
 
 #[test]
 // check that the values returned match what was in the key
-fn lookup_random_id_check() {
+fn longest_match4_random_id_check() {
     let ref tbm = FULL_BGP_TABLE_IDENT;
     let mut rng = rand::weak_rng();
     for _ in 0..10000 {
@@ -166,7 +168,7 @@ fn lookup_random_id_check() {
 }
 
 #[bench]
-fn lookup_apple(b: &mut Bencher) {
+fn longest_match4_apple(b: &mut Bencher) {
     let ip = Ipv4Addr::new(17,151,0,151);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
@@ -174,7 +176,7 @@ fn lookup_apple(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_comcast6(b: &mut Bencher) {
+fn longest_match6_comcast(b: &mut Bencher) {
     let ip = Ipv6Addr::from_str("2001:6c8:180:1::c3f9:1b20").unwrap();
     b.iter(|| {
         black_box(FULL_BGP6_TABLE_UNIT.longest_match(ip));
@@ -183,7 +185,7 @@ fn lookup_comcast6(b: &mut Bencher) {
 
 
 #[bench]
-fn lookup_netgroup(b: &mut Bencher) {
+fn longest_match4_netgroup(b: &mut Bencher) {
     let ip = Ipv4Addr::new(77,66,88,50);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
@@ -191,7 +193,7 @@ fn lookup_netgroup(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_googledns(b: &mut Bencher) {
+fn longest_match4_googledns(b: &mut Bencher) {
     let ip = Ipv4Addr::new(8,8,8,8);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
@@ -199,7 +201,7 @@ fn lookup_googledns(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_googledns6(b: &mut Bencher) {
+fn longest_match6_googledns(b: &mut Bencher) {
     let ip = Ipv6Addr::from_str("2001:4860:4860::8888").unwrap();
     b.iter(|| {
         black_box(FULL_BGP6_TABLE_UNIT.longest_match(ip));
@@ -207,7 +209,7 @@ fn lookup_googledns6(b: &mut Bencher) {
 }
 
 #[bench]
-fn localhost(b: &mut Bencher) {
+fn longest_match4_localhost(b: &mut Bencher) {
     let ip = Ipv4Addr::new(127,0,0,1);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
@@ -215,7 +217,7 @@ fn localhost(b: &mut Bencher) {
 }
 
 #[bench]
-fn localhost6(b: &mut Bencher) {
+fn longest_match6_localhost(b: &mut Bencher) {
     let ip = Ipv6Addr::from_str("::1").unwrap();
     b.iter(|| {
         black_box(FULL_BGP6_TABLE_UNIT.longest_match(ip));
@@ -223,7 +225,7 @@ fn localhost6(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_random_sample(b: &mut Bencher) {
+fn longest_match4_random_sample(b: &mut Bencher) {
     let mut rng = rand::weak_rng();
     let r: u32 = rng.gen_range(1<<24, 224<<24);
     let ip = Ipv4Addr::from(r);
@@ -233,11 +235,20 @@ fn lookup_random_sample(b: &mut Bencher) {
 }
 
 #[bench]
-fn lookup_random_every(b: &mut Bencher) {
+fn longest_match4_random_every(b: &mut Bencher) {
     let mut rng = rand::weak_rng();
     b.iter(||{
         let r: u32 = rng.gen_range(1<<24, 224<<24);
         let ip = Ipv4Addr::from(r);
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     });
+}
+
+
+#[bench]
+fn exact_match4_googledns(b: &mut Bencher) {
+    let ip = Ipv4Addr::new(8,8,8,0);
+    b.iter(|| {
+        black_box(FULL_BGP_TABLE_UNIT.exact_match(ip,24));
+    })
 }
