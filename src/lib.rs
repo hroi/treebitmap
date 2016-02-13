@@ -163,6 +163,12 @@ pub struct Iter<'a, A, T: 'a> {
     _addrtype: PhantomData<A>,
 }
 
+/// Converts ```IpLookupTable``` into an iterator. The prefixes are returned in "tree"-order.
+pub struct IntoIter<A, T> {
+    inner: tree_bitmap::IntoIter<T>,
+    _addrtype: PhantomData<A>,
+}
+
 macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
@@ -207,11 +213,36 @@ macro_rules! impl_ops {
             }
         }
 
+        impl<'a, T: 'a> Iterator for IntoIter<$addr_type, T> {
+            type Item = ($addr_type, u32, T);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self.inner.next() {
+                    Some((nibbles, masklen, value)) => {
+                        Some((Address::from_nibbles(&nibbles[..]), masklen, value))
+                    },
+                    None => None,
+                }
+            }
+        }
+
+        impl<T> IntoIterator for IpLookupTable<$addr_type, T> {
+            type Item = ($addr_type, u32, T);
+            type IntoIter = IntoIter<$addr_type,T>;
+
+            fn into_iter(self) -> IntoIter<$addr_type,T> {
+                IntoIter {
+                    inner: self.inner.into_iter(),
+                    _addrtype: PhantomData,
+                }
+            }
+        }
     }
 }
 
 impl_ops!(Ipv4Addr);
 impl_ops!(Ipv6Addr);
+
 
 #[cfg(test)]
 mod tests;
