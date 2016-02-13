@@ -3,7 +3,6 @@
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
 
-//!
 //! To use these tests and benchmarks, make sure test/ contains bgp4-dump.txt and
 //! bgp6-dump.txt each containing a full dump of the current internet routing
 //! table, one prefix per line in CIDR notation.
@@ -11,10 +10,10 @@
 
 extern crate rand;
 
-use self::rand::{Rng};
+use self::rand::Rng;
 
 use super::*;
-use test::{Bencher,black_box};
+use test::{Bencher, black_box};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::io::prelude::*;
@@ -24,14 +23,14 @@ use std::fs::File;
 lazy_static! {
     static ref FULL_BGP_TABLE_IDENT: IpLookupTable<Ipv4Addr,(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
     static ref FULL_BGP_TABLE_UNIT: IpLookupTable<Ipv4Addr,()> = {load_bgp_dump_light(0).unwrap()};
-    //static ref FULL_BGP6_TABLE_IDENT: Ipv6LookupTable<(Ipv6Addr, u32)> = {load_bgp6_dump(0).unwrap()};
+// static ref FULL_BGP6_TABLE_IDENT: Ipv6LookupTable<(Ipv6Addr, u32)> = {load_bgp6_dump(0).unwrap()};
     static ref FULL_BGP6_TABLE_UNIT: IpLookupTable<Ipv6Addr,()> = {load_bgp6_dump_light(0).unwrap()};
 }
 
 
 /// We store the the prefix in the value, so we can later compare it and check that it is the correct value for the key.
-fn load_bgp6_dump_light(limit: u32) -> Result<IpLookupTable<Ipv6Addr,()>, Error> {
-    let mut tbm = IpLookupTable::<Ipv6Addr,()>::with_capacity(512);
+fn load_bgp6_dump_light(limit: u32) -> Result<IpLookupTable<Ipv6Addr, ()>, Error> {
+    let mut tbm = IpLookupTable::<Ipv6Addr, ()>::with_capacity(512);
     let f = try!(File::open("test/bgp6-dump.txt"));
     let r = BufReader::new(f);
     let mut i = 0;
@@ -43,7 +42,7 @@ fn load_bgp6_dump_light(limit: u32) -> Result<IpLookupTable<Ipv6Addr,()>, Error>
                 break;
             }
             let ip = Ipv6Addr::from_str(&line[..slash_offset]).unwrap();
-            let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
+            let masklen = u32::from_str(&line[slash_offset + 1..]).unwrap();
             assert!(masklen <= 128);
             tbm.insert(ip, masklen, ());
         }
@@ -51,8 +50,8 @@ fn load_bgp6_dump_light(limit: u32) -> Result<IpLookupTable<Ipv6Addr,()>, Error>
     Ok(tbm)
 }
 
-fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr,()>, Error> {
-    let mut tbl = IpLookupTable::<Ipv4Addr,()>::with_capacity(512);
+fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr, ()>, Error> {
+    let mut tbl = IpLookupTable::<Ipv4Addr, ()>::with_capacity(512);
     let f = try!(File::open("test/bgp4-dump.txt"));
     let r = BufReader::new(f);
     let mut i = 0;
@@ -64,7 +63,7 @@ fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr,()>, Error> 
                 break;
             }
             let ip = Ipv4Addr::from_str(&line[..slash_offset]).unwrap();
-            let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
+            let masklen = u32::from_str(&line[slash_offset + 1..]).unwrap();
             assert!(masklen <= 32);
             tbl.insert(ip, masklen, ());
         }
@@ -74,7 +73,7 @@ fn load_bgp_dump_light(limit: u32) -> Result<IpLookupTable<Ipv4Addr,()>, Error> 
 
 #[allow(dead_code)]
 fn load_bgp6_dump(limit: u32) -> Result<IpLookupTable<Ipv6Addr, (Ipv6Addr, u32)>, Error> {
-    let mut tbm = IpLookupTable::<Ipv6Addr,(Ipv6Addr,u32)>::with_capacity(512);
+    let mut tbm = IpLookupTable::<Ipv6Addr, (Ipv6Addr, u32)>::with_capacity(512);
     let f = try!(File::open("test/bgp6-dump.txt"));
     let r = BufReader::new(f);
     let mut i = 0;
@@ -86,17 +85,17 @@ fn load_bgp6_dump(limit: u32) -> Result<IpLookupTable<Ipv6Addr, (Ipv6Addr, u32)>
                 break;
             }
             let ip = Ipv6Addr::from_str(&line[..slash_offset]).unwrap();
-            let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
+            let masklen = u32::from_str(&line[slash_offset + 1..]).unwrap();
             assert!(masklen <= 128);
             tbm.insert(ip, masklen, (ip, masklen));
         }
     }
-    //tbm.shrink_to_fit();
+    // tbm.shrink_to_fit();
     Ok(tbm)
 }
 
 fn load_bgp_dump(limit: u32) -> Result<IpLookupTable<Ipv4Addr, (Ipv4Addr, u32)>, Error> {
-    let mut tbm = IpLookupTable::<Ipv4Addr,(Ipv4Addr,u32)>::with_capacity(512);
+    let mut tbm = IpLookupTable::<Ipv4Addr, (Ipv4Addr, u32)>::with_capacity(512);
     let f = try!(File::open("test/bgp4-dump.txt"));
     let r = BufReader::new(f);
     let mut i = 0;
@@ -108,12 +107,12 @@ fn load_bgp_dump(limit: u32) -> Result<IpLookupTable<Ipv4Addr, (Ipv4Addr, u32)>,
                 break;
             }
             let ip = Ipv4Addr::from_str(&line[..slash_offset]).unwrap();
-            let masklen = u32::from_str(&line[slash_offset+1..]).unwrap();
+            let masklen = u32::from_str(&line[slash_offset + 1..]).unwrap();
             assert!(masklen <= 32);
             tbm.insert(ip, masklen, (ip, masklen));
         }
     }
-    //tbm.shrink_to_fit();
+    // tbm.shrink_to_fit();
     Ok(tbm)
 }
 
@@ -122,11 +121,13 @@ fn loadv4() {
     let tbl = load_bgp_dump_light(0).unwrap();
 
     let (node_bytes, result_bytes) = tbl.mem_usage();
-    println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes", node_bytes, result_bytes);
+    println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes",
+             node_bytes,
+             result_bytes);
 
-    let google_dns = Ipv4Addr::new(8,8,8,8);
-    let (prefix, mask, _)= tbl.longest_match(google_dns).unwrap();
-    assert_eq!(prefix, Ipv4Addr::new(8,8,8,0));
+    let google_dns = Ipv4Addr::new(8, 8, 8, 8);
+    let (prefix, mask, _) = tbl.longest_match(google_dns).unwrap();
+    assert_eq!(prefix, Ipv4Addr::new(8, 8, 8, 0));
     assert_eq!(mask, 24);
 }
 
@@ -156,7 +157,7 @@ fn loadv6() {
 fn longest_match4_random_id_check() {
     let mut rng = rand::weak_rng();
     for _ in 0..10000 {
-        let ip = Ipv4Addr::from(rng.gen_range(1<<24, 224<<24));
+        let ip = Ipv4Addr::from(rng.gen_range(1 << 24, 224 << 24));
         let result = FULL_BGP_TABLE_IDENT.longest_match(ip);
         println!("lookup({}) -> {:?}", ip, result);
         if let Some((prefix, masklen, val)) = result {
@@ -168,7 +169,7 @@ fn longest_match4_random_id_check() {
 
 #[bench]
 fn longest_match4_apple(b: &mut Bencher) {
-    let ip = Ipv4Addr::new(17,151,0,151);
+    let ip = Ipv4Addr::new(17, 151, 0, 151);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     })
@@ -185,7 +186,7 @@ fn longest_match6_comcast(b: &mut Bencher) {
 
 #[bench]
 fn longest_match4_netgroup(b: &mut Bencher) {
-    let ip = Ipv4Addr::new(77,66,88,50);
+    let ip = Ipv4Addr::new(77, 66, 88, 50);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     })
@@ -193,7 +194,7 @@ fn longest_match4_netgroup(b: &mut Bencher) {
 
 #[bench]
 fn longest_match4_googledns(b: &mut Bencher) {
-    let ip = Ipv4Addr::new(8,8,8,8);
+    let ip = Ipv4Addr::new(8, 8, 8, 8);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     })
@@ -209,7 +210,7 @@ fn longest_match6_googledns(b: &mut Bencher) {
 
 #[bench]
 fn longest_match4_localhost(b: &mut Bencher) {
-    let ip = Ipv4Addr::new(127,0,0,1);
+    let ip = Ipv4Addr::new(127, 0, 0, 1);
     b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     })
@@ -226,9 +227,9 @@ fn longest_match6_localhost(b: &mut Bencher) {
 #[bench]
 fn longest_match4_random_sample(b: &mut Bencher) {
     let mut rng = rand::weak_rng();
-    let r: u32 = rng.gen_range(1<<24, 224<<24);
+    let r: u32 = rng.gen_range(1 << 24, 224 << 24);
     let ip = Ipv4Addr::from(r);
-    b.iter(||{
+    b.iter(|| {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     });
 }
@@ -236,8 +237,8 @@ fn longest_match4_random_sample(b: &mut Bencher) {
 #[bench]
 fn longest_match4_random_every(b: &mut Bencher) {
     let mut rng = rand::weak_rng();
-    b.iter(||{
-        let r: u32 = rng.gen_range(1<<24, 224<<24);
+    b.iter(|| {
+        let r: u32 = rng.gen_range(1 << 24, 224 << 24);
         let ip = Ipv4Addr::from(r);
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     });
@@ -246,8 +247,8 @@ fn longest_match4_random_every(b: &mut Bencher) {
 
 #[bench]
 fn exact_match4_googledns(b: &mut Bencher) {
-    let ip = Ipv4Addr::new(8,8,8,0);
+    let ip = Ipv4Addr::new(8, 8, 8, 0);
     b.iter(|| {
-        black_box(FULL_BGP_TABLE_UNIT.exact_match(ip,24));
+        black_box(FULL_BGP_TABLE_UNIT.exact_match(ip, 24));
     })
 }

@@ -277,4 +277,3 @@ impl_ops!(Ipv6Addr);
 mod tests;
 #[cfg(all(test, feature = "full-bgp-tests"))]
 mod full_bgp_tests;
-

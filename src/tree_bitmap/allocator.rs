@@ -22,17 +22,17 @@ impl<T: fmt::Debug> fmt::Debug for BucketVec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
         f.debug_struct("BucketVec")
-            .field("spacing", &self.spacing)
-            .field("freelist", &self.freelist)
-            .field("len", &self.len)
-            .field("cap", &self.buf.cap())
-            .field("buf", unsafe {&slice::from_raw_parts(self.buf.ptr(), self.len as usize)})
-            .finish()
+         .field("spacing", &self.spacing)
+         .field("freelist", &self.freelist)
+         .field("len", &self.len)
+         .field("cap", &self.buf.cap())
+         .field("buf",
+                unsafe { &slice::from_raw_parts(self.buf.ptr(), self.len as usize) })
+         .finish()
     }
 }
 
 impl<T: Sized> BucketVec<T> {
-
     pub fn with_capacity(spacing: u32, capacity: usize) -> BucketVec<T> {
         BucketVec {
             buf: RawVec::with_capacity(capacity),
@@ -54,7 +54,9 @@ impl<T: Sized> BucketVec<T> {
                 self.buf.reserve(self.len as usize, self.spacing as usize);
                 if cfg!(debug_assertions) {
                     unsafe {
-                        ptr::write_bytes(self.buf.ptr().offset(self.len as isize), 0, self.spacing as usize);
+                        ptr::write_bytes(self.buf.ptr().offset(self.len as isize),
+                                         0,
+                                         self.spacing as usize);
                     }
                 }
                 let slot = self.len;
@@ -111,7 +113,9 @@ impl<T: Sized> BucketVec<T> {
         let offset = slot + index;
         unsafe {
             let dst_ptr = self.buf.ptr().offset(offset as isize);
-            ptr::copy(dst_ptr, dst_ptr.offset(1), (self.spacing - index - 1) as usize);
+            ptr::copy(dst_ptr,
+                      dst_ptr.offset(1),
+                      (self.spacing - index - 1) as usize);
             ptr::write(dst_ptr, value);
         }
     }
@@ -123,9 +127,12 @@ impl<T: Sized> BucketVec<T> {
         unsafe {
             ret = ptr::read(self.buf.ptr().offset(offset as isize));
             let dst_ptr = self.buf.ptr().offset(offset as isize);
-            ptr::copy(dst_ptr.offset(1), dst_ptr, (self.spacing - index - 1) as usize);
+            ptr::copy(dst_ptr.offset(1),
+                      dst_ptr,
+                      (self.spacing - index - 1) as usize);
             if cfg!(debug_assertions) {
-                ptr::write(dst_ptr.offset((self.spacing - index - 1) as isize), mem::zeroed());
+                ptr::write(dst_ptr.offset((self.spacing - index - 1) as isize),
+                           mem::zeroed());
             }
         }
         ret
@@ -135,7 +142,7 @@ impl<T: Sized> BucketVec<T> {
     fn move_slot(&mut self, slot: u32, dst: &mut BucketVec<T>) -> u32 {
         let nitems = cmp::min(self.spacing, dst.spacing);
 
-        //debug_assert!(self.spacing != dst.spacing);
+        // debug_assert!(self.spacing != dst.spacing);
         debug_assert!(nitems > 0);
         debug_assert!(nitems <= dst.spacing);
         debug_assert!(slot < self.len);
@@ -159,24 +166,22 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn mem_usage(&self) -> usize {
-        (mem::size_of::<T>() * self.buf.cap())
-            + (self.freelist.capacity() * mem::size_of::<u32>())
+        (mem::size_of::<T>() * self.buf.cap()) + (self.freelist.capacity() * mem::size_of::<u32>())
     }
 
-    //fn shrink_to_fit(&mut self) {
+    // fn shrink_to_fit(&mut self) {
     //    self.buf.shrink_to_fit(self.len as usize);
-    //}
+    // }
 }
 
-static LEN2BUCKET: [u32;33] = [0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8];
+static LEN2BUCKET: [u32; 33] = [0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7,
+                                7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8];
 
 
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
     debug_assert!(len < 33);
-    unsafe{
-        *LEN2BUCKET.get_unchecked(len as usize)
-    }
+    unsafe { *LEN2BUCKET.get_unchecked(len as usize) }
 }
 
 /// ```Allocator``` stores items in exponentially sized buckets (using ```BucketVec```s for backing).
@@ -201,7 +206,7 @@ pub struct AllocatorHandle {
 impl AllocatorHandle {
     #[inline]
     pub fn generate(len: u32, offset: u32) -> AllocatorHandle {
-        AllocatorHandle{
+        AllocatorHandle {
             len: len,
             offset: offset,
         }
@@ -213,9 +218,15 @@ impl<T: Sized> Allocator<T> {
     #[allow(dead_code)]
     pub fn new() -> Allocator<T> {
         Allocator {
-            buckets: [BucketVec::new(1), BucketVec::new(2), BucketVec::new(4),
-                      BucketVec::new(6), BucketVec::new(8), BucketVec::new(12),
-                      BucketVec::new(16), BucketVec::new(24), BucketVec::new(32),]
+            buckets: [BucketVec::new(1),
+                      BucketVec::new(2),
+                      BucketVec::new(4),
+                      BucketVec::new(6),
+                      BucketVec::new(8),
+                      BucketVec::new(12),
+                      BucketVec::new(16),
+                      BucketVec::new(24),
+                      BucketVec::new(32)],
         }
     }
 
@@ -230,7 +241,7 @@ impl<T: Sized> Allocator<T> {
                       BucketVec::with_capacity(12, cap),
                       BucketVec::with_capacity(16, cap),
                       BucketVec::with_capacity(24, cap),
-                      BucketVec::with_capacity(32, cap)]
+                      BucketVec::with_capacity(32, cap)],
         }
     }
 
@@ -243,18 +254,18 @@ impl<T: Sized> Allocator<T> {
         total
     }
 
-    //pub fn shrink_to_fit(&mut self) {
+    // pub fn shrink_to_fit(&mut self) {
     //    for buckvec in &mut self.buckets {
     //        buckvec.shrink_to_fit();
     //    }
-    //}
+    // }
 
     pub fn alloc(&mut self, count: u32) -> AllocatorHandle {
         let bucket_index = choose_bucket(count) as usize;
         let slot = self.buckets[bucket_index].alloc_slot();
-        AllocatorHandle{
+        AllocatorHandle {
             len: count,
-            offset: slot
+            offset: slot,
         }
     }
 
@@ -278,19 +289,15 @@ impl<T: Sized> Allocator<T> {
     #[inline]
     pub fn get(&self, hdl: &AllocatorHandle, index: u32) -> &T {
         let bucket_index = choose_bucket(hdl.len) as usize;
-        //self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe {
-            (*self.buckets.get_unchecked(bucket_index)).get_slot_entry(hdl.offset, index)
-        }
+        // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
+        unsafe { (*self.buckets.get_unchecked(bucket_index)).get_slot_entry(hdl.offset, index) }
     }
 
     #[inline]
     pub fn get_mut(&self, hdl: &AllocatorHandle, index: u32) -> &mut T {
         let bucket_index = choose_bucket(hdl.len) as usize;
-        //self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe {
-            (*self.buckets.get_unchecked(bucket_index)).get_slot_entry_mut(hdl.offset, index)
-        }
+        // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
+        unsafe { (*self.buckets.get_unchecked(bucket_index)).get_slot_entry_mut(hdl.offset, index) }
     }
 
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {
@@ -343,7 +350,7 @@ impl<T: Sized> Allocator<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test::{Bencher,black_box};
+    use test::{Bencher, black_box};
 
     #[test]
     fn bucketvec_move_to() {
@@ -352,7 +359,7 @@ mod tests {
         let mut b: BucketVec<u32> = BucketVec::new(spacing);
         let slot_offset = a.alloc_slot();
         for i in 0..spacing {
-            a.set_slot_entry(slot_offset,i,1000 + i);
+            a.set_slot_entry(slot_offset, i, 1000 + i);
         }
         let _ = a.move_slot(0, &mut b);
     }
@@ -448,11 +455,11 @@ mod tests {
         let mut alloc = Allocator::<u32>::new();
         let hdl = alloc.alloc(32);
         for i in 0..32 {
-            alloc.set(&hdl, i, 1000+i);
+            alloc.set(&hdl, i, 1000 + i);
         }
 
         for i in 0..32 {
-            assert_eq!(*alloc.get(&hdl, i), 1000+i);
+            assert_eq!(*alloc.get(&hdl, i), 1000 + i);
         }
     }
 
@@ -461,7 +468,7 @@ mod tests {
         let mut alloc = Allocator::<u32>::new();
         let hdl = alloc.alloc(32);
         for i in 0..32 {
-            alloc.set(&hdl, i, 1000+i);
+            alloc.set(&hdl, i, 1000 + i);
         }
 
         for i in 0..32 {

@@ -7,11 +7,13 @@ use super::allocator::AllocatorHandle;
 
 pub const INT_MASK: u32 = 0xffff0000;
 pub const EXT_MASK: u32 = 0x0000ffff;
-pub const END_BIT:  u32 = 1 << 16;
+pub const END_BIT: u32 = 1 << 16;
 pub const END_BIT_MASK: u32 = !END_BIT; // all bits except the end node bit
 
-type Table = [[u32; 16];5];
-const IS_END_NODE: u32 = 1<<16;
+type Table = [[u32; 16]; 5];
+const IS_END_NODE: u32 = 1 << 16;
+
+#[cfg_attr(rustfmt, rustfmt_skip)]
 static INTERNAL_LOOKUP_TABLE: Table = [
     // mask = 00000, 0/0
     [1<<31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -29,37 +31,36 @@ static INTERNAL_LOOKUP_TABLE: Table = [
      IS_END_NODE | 1<< 3, IS_END_NODE | 1<< 2, IS_END_NODE | 1<< 1, IS_END_NODE |     1],
 ];
 
-pub const MSB: u32 = 1<<31;
+pub const MSB: u32 = 1 << 31;
 
-pub static MATCH_MASKS: [u32; 16] = [
-    MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 16, // 0000
-    MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 17, // 0001
-    MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 18, // 0010
-    MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 19, // 0011
+#[cfg_attr(rustfmt, rustfmt_skip)]
+pub static MATCH_MASKS: [u32; 16] = [MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 16, // 0000
+                                     MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB >> 17, // 0001
+                                     MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 18, // 0010
+                                     MSB | MSB >> 1 | MSB >> 3 | MSB >>  8 | MSB >> 19, // 0011
 
-    MSB | MSB >> 1 | MSB >> 4 | MSB >>  9 | MSB >> 20, // 0100
-    MSB | MSB >> 1 | MSB >> 4 | MSB >>  9 | MSB >> 21, // 0101
-    MSB | MSB >> 1 | MSB >> 4 | MSB >> 10 | MSB >> 22, // 0110
-    MSB | MSB >> 1 | MSB >> 4 | MSB >> 10 | MSB >> 23, // 0111
+                                     MSB | MSB >> 1 | MSB >> 4 | MSB >>  9 | MSB >> 20, // 0100
+                                     MSB | MSB >> 1 | MSB >> 4 | MSB >>  9 | MSB >> 21, // 0101
+                                     MSB | MSB >> 1 | MSB >> 4 | MSB >> 10 | MSB >> 22, // 0110
+                                     MSB | MSB >> 1 | MSB >> 4 | MSB >> 10 | MSB >> 23, // 0111
 
-    MSB | MSB >> 2 | MSB >> 5 | MSB >> 11 | MSB >> 24, // 1000
-    MSB | MSB >> 2 | MSB >> 5 | MSB >> 11 | MSB >> 25, // 1001
-    MSB | MSB >> 2 | MSB >> 5 | MSB >> 12 | MSB >> 26, // 1010
-    MSB | MSB >> 2 | MSB >> 5 | MSB >> 12 | MSB >> 27, // 1011
+                                     MSB | MSB >> 2 | MSB >> 5 | MSB >> 11 | MSB >> 24, // 1000
+                                     MSB | MSB >> 2 | MSB >> 5 | MSB >> 11 | MSB >> 25, // 1001
+                                     MSB | MSB >> 2 | MSB >> 5 | MSB >> 12 | MSB >> 26, // 1010
+                                     MSB | MSB >> 2 | MSB >> 5 | MSB >> 12 | MSB >> 27, // 1011
 
-    MSB | MSB >> 2 | MSB >> 6 | MSB >> 13 | MSB >> 28, // 1100
-    MSB | MSB >> 2 | MSB >> 6 | MSB >> 13 | MSB >> 29, // 1101
-    MSB | MSB >> 2 | MSB >> 6 | MSB >> 14 | MSB >> 30, // 1110
-    MSB | MSB >> 2 | MSB >> 6 | MSB >> 14 | MSB >> 31, // 1111
-];
+                                     MSB | MSB >> 2 | MSB >> 6 | MSB >> 13 | MSB >> 28, // 1100
+                                     MSB | MSB >> 2 | MSB >> 6 | MSB >> 13 | MSB >> 29, // 1101
+                                     MSB | MSB >> 2 | MSB >> 6 | MSB >> 14 | MSB >> 30, // 1110
+                                     MSB | MSB >> 2 | MSB >> 6 | MSB >> 14 | MSB >> 31  /* 1111 */];
 
 #[inline]
 pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
     debug_assert!(prefix < 16); // only nibbles allowed
     debug_assert!(masklen < 5);
-    //INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
-    let ret = unsafe{
-        //let ptr: *INTERNAL_LOOKUP_TABLE;
+    // INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
+    let ret = unsafe {
+        // let ptr: *INTERNAL_LOOKUP_TABLE;
         *(*INTERNAL_LOOKUP_TABLE.get_unchecked(masklen as usize)).get_unchecked(prefix as usize)
     };
     debug_assert!(ret > 0);
@@ -90,9 +91,9 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 #[derive(Clone,Copy)]
 pub struct Node {
     /// child/result bitmap
-    bitmap:     u32, // first 16 bits: internal, last 16 bits: child bitmap
+    bitmap: u32, // first 16 bits: internal, last 16 bits: child bitmap
     /// child base pointer
-    pub child_ptr:  u32,
+    pub child_ptr: u32,
     /// results base pointer
     pub result_ptr: u32,
 }
@@ -106,6 +107,7 @@ pub const BIT_MATCH: [u32;32] = [
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 ];
 
+#[cfg_attr(rustfmt, rustfmt_skip)]
 const BIT_MEANING: &'static [&'static str] = &[
     "*",
     "0*", "1*",
@@ -120,7 +122,7 @@ impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut int_nodes: Vec<&str> = Vec::new();
         let mut child_nodes: Vec<u32> = Vec::new();
-        let mut selector = 1<<31;
+        let mut selector = 1 << 31;
         for meaning in BIT_MEANING {
             if self.internal() & selector > 0 {
                 int_nodes.push(meaning);
@@ -128,7 +130,7 @@ impl fmt::Debug for Node {
             selector >>= 1;
         }
 
-        selector = 1<<15;
+        selector = 1 << 15;
         for i in 0..16 {
             if self.external() & selector > 0 {
                 child_nodes.push(i);
@@ -140,27 +142,26 @@ impl fmt::Debug for Node {
 
         if self.is_endnode() {
             return f.debug_struct("EndNode")
-                .field("bitmap", &bitmap_string)
-                .field("internal", &int_nodes)
-                .field("result_ptr", &self.result_ptr)
-                .finish();
+                    .field("bitmap", &bitmap_string)
+                    .field("internal", &int_nodes)
+                    .field("result_ptr", &self.result_ptr)
+                    .finish();
         }
         if self.is_blank() {
             return f.debug_struct("BlankNode").finish();
         }
         f.debug_struct("InternalNode")
-            .field("bitmap", &bitmap_string)
-            .field("internal", &int_nodes)
-            .field("children", &child_nodes)
-            .field("child_ptr", &self.child_ptr)
-            .field("result_ptr", &self.result_ptr)
-            .finish()
+         .field("bitmap", &bitmap_string)
+         .field("internal", &int_nodes)
+         .field("children", &child_nodes)
+         .field("child_ptr", &self.child_ptr)
+         .field("result_ptr", &self.result_ptr)
+         .finish()
     }
 }
 
 
 impl Node {
-
     /// Get a fresh, blank node.
     pub fn new() -> Self {
         Node {
@@ -214,7 +215,8 @@ impl Node {
     #[inline]
     pub fn make_endnode(&mut self) {
         debug_assert!(!self.is_endnode(), "make_endnode: already an endnode.");
-        debug_assert!(self.external() == 0, "cannot make into endnode when there are children present");
+        debug_assert!(self.external() == 0,
+                      "cannot make into endnode when there are children present");
         self.bitmap |= END_BIT
     }
 
@@ -257,11 +259,14 @@ impl Node {
     /// + if an attempt is made to set an already set internal bit or any non-internal bit.
     #[inline]
     pub fn set_internal(&mut self, bitmap: u32) {
-        debug_assert!(bitmap.count_ones() == 1, "set_internal: bitmap must contain exactly one bit");
-        debug_assert!(bitmap & END_BIT == 0, "set_internal: not permitted to set the endnode bit");
+        debug_assert!(bitmap.count_ones() == 1,
+                      "set_internal: bitmap must contain exactly one bit");
+        debug_assert!(bitmap & END_BIT == 0,
+                      "set_internal: not permitted to set the endnode bit");
         debug_assert!(self.bitmap & bitmap == 0, "set_internal: bit already set");
         if !self.is_endnode() {
-            debug_assert!(bitmap & EXT_MASK == 0, "set_internal: attempted to set external bit"); 
+            debug_assert!(bitmap & EXT_MASK == 0,
+                          "set_internal: attempted to set external bit");
         }
         self.bitmap |= bitmap
     }
@@ -272,11 +277,15 @@ impl Node {
     /// + if an attempt is made to set an already set internal bit or any non-internal bit.
     #[inline]
     pub fn unset_internal(&mut self, bitmap: u32) {
-        debug_assert!(bitmap.count_ones() == 1, "unset_internal: bitmap must contain exactly one bit");
-        debug_assert!(bitmap & END_BIT == 0, "unset_internal: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == bitmap, "unset_internal: bit already unset");
+        debug_assert!(bitmap.count_ones() == 1,
+                      "unset_internal: bitmap must contain exactly one bit");
+        debug_assert!(bitmap & END_BIT == 0,
+                      "unset_internal: not permitted to set the endnode bit");
+        debug_assert!(self.bitmap & bitmap == bitmap,
+                      "unset_internal: bit already unset");
         if !self.is_endnode() {
-            debug_assert!(bitmap & EXT_MASK == 0, "unset_internal: attempted to set external bit"); 
+            debug_assert!(bitmap & EXT_MASK == 0,
+                          "unset_internal: attempted to set external bit");
         }
         self.bitmap ^= bitmap
     }
@@ -288,25 +297,33 @@ impl Node {
     /// + if the node is an endnode.
     #[inline]
     pub fn set_external(&mut self, bitmap: u32) {
-        debug_assert!(!self.is_endnode(), "set_external: endnodes don't have external bits");
-        debug_assert!(bitmap & END_BIT == 0, "set_external: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == 0, "set_external: not permitted to set an already set bit");
-        debug_assert!(bitmap & INT_MASK == 0, "set_external: not permitted to set an internal bit");
+        debug_assert!(!self.is_endnode(),
+                      "set_external: endnodes don't have external bits");
+        debug_assert!(bitmap & END_BIT == 0,
+                      "set_external: not permitted to set the endnode bit");
+        debug_assert!(self.bitmap & bitmap == 0,
+                      "set_external: not permitted to set an already set bit");
+        debug_assert!(bitmap & INT_MASK == 0,
+                      "set_external: not permitted to set an internal bit");
         self.bitmap |= bitmap
     }
 
     pub fn unset_external(&mut self, bitmap: u32) {
-        debug_assert!(!self.is_endnode(), "unset_external: endnodes don't have external bits");
-        debug_assert!(bitmap & END_BIT == 0, "unset_external: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == bitmap, "unset_external: not permitted to unset an already unset bit");
-        debug_assert!(bitmap & INT_MASK == 0, "unset_external: not permitted to set an internal bit");
+        debug_assert!(!self.is_endnode(),
+                      "unset_external: endnodes don't have external bits");
+        debug_assert!(bitmap & END_BIT == 0,
+                      "unset_external: not permitted to set the endnode bit");
+        debug_assert!(self.bitmap & bitmap == bitmap,
+                      "unset_external: not permitted to unset an already unset bit");
+        debug_assert!(bitmap & INT_MASK == 0,
+                      "unset_external: not permitted to set an internal bit");
         self.bitmap ^= bitmap
     }
 
     /// Perform a match on segment/masklen.
     #[inline]
     pub fn match_segment(&self, segment: u8) -> MatchResult {
-        let match_mask = unsafe {*MATCH_MASKS.get_unchecked(segment as usize)};
+        let match_mask = unsafe { *MATCH_MASKS.get_unchecked(segment as usize) };
         match self.match_external(match_mask) {
             MatchResult::None => self.match_internal(match_mask),
             x => x,
@@ -315,14 +332,14 @@ impl Node {
 
     #[inline]
     pub fn match_internal(&self, match_mask: u32) -> MatchResult {
-        //let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
+        // let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let result_match = self.internal() & match_mask;
         if result_match > 0 {
             let result_hdl = self.result_handle();
             let best_match_bit_index = 31 - result_match.trailing_zeros();
             let best_match_result_index = match best_match_bit_index {
                 0 => 0,
-                _ => (self.internal() >> (32 - best_match_bit_index)).count_ones()
+                _ => (self.internal() >> (32 - best_match_bit_index)).count_ones(),
             };
             return MatchResult::Match(result_hdl, best_match_result_index, best_match_bit_index);
         }
@@ -331,14 +348,14 @@ impl Node {
 
     #[inline]
     pub fn match_external(&self, match_mask: u32) -> MatchResult {
-        //let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
+        // let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let child_match = self.external() & match_mask;
         if child_match > 0 {
             let child_hdl = self.child_handle();
             let best_match_bit_index = 31 - child_match.trailing_zeros();
             let best_match_child_index = match best_match_bit_index {
                 0 => 0,
-                _ => (self.external() >> (32 - best_match_bit_index)).count_ones()
+                _ => (self.external() >> (32 - best_match_bit_index)).count_ones(),
             };
             return MatchResult::Chase(child_hdl, best_match_child_index);
         }
@@ -349,15 +366,15 @@ impl Node {
 #[derive(Debug)]
 pub enum MatchResult {
     Match(AllocatorHandle, u32, u32), // result_handle, offset, matching bits
-    Chase(AllocatorHandle, u32),      // child_handle, offset
-    None,                             // Node does not match
+    Chase(AllocatorHandle, u32), // child_handle, offset
+    None, // Node does not match
 }
 
 #[cfg(test)]
 mod tests {
     extern crate test;
     use super::*;
-    use self::test::{Bencher,black_box};
+    use self::test::{Bencher, black_box};
 
     #[test]
     fn test_trienode_new() {
@@ -381,7 +398,7 @@ mod tests {
         println!("match_segment({:04b}): {:?}", segment, match_result);
         match match_result {
             MatchResult::Match(_, _, _) => (),
-            _ => panic!("match failure")
+            _ => panic!("match failure"),
         }
     }
 
@@ -401,42 +418,41 @@ mod tests {
     }
 
 
-    const TEST_DATA: [(u32,u8); 31]= [
-        (0, 0b0000),
-        (1, 0b0000),
-        (1, 0b1000),
-        (2, 0b0000),
-        (2, 0b0100),
-        (2, 0b1000),
-        (2, 0b1100),
-        (3, 0b0000),
-        (3, 0b0010),
-        (3, 0b0100),
-        (3, 0b0110),
-        (3, 0b1000),
-        (3, 0b1010),
-        (3, 0b1100),
-        (3, 0b1110),
-        (4, 0b0000),
-        (4, 0b0001),
-        (4, 0b0010),
-        (4, 0b0011),
-        (4, 0b0100),
-        (4, 0b0101),
-        (4, 0b0110),
-        (4, 0b0111),
-        (4, 0b1000),
-        (4, 0b1001),
-        (4, 0b1010),
-        (4, 0b1011),
-        (4, 0b1100),
-        (4, 0b1101),
-        (4, 0b1110),
-        (4, 0b1111),];
+    const TEST_DATA: [(u32, u8); 31] = [(0, 0b0000),
+                                        (1, 0b0000),
+                                        (1, 0b1000),
+                                        (2, 0b0000),
+                                        (2, 0b0100),
+                                        (2, 0b1000),
+                                        (2, 0b1100),
+                                        (3, 0b0000),
+                                        (3, 0b0010),
+                                        (3, 0b0100),
+                                        (3, 0b0110),
+                                        (3, 0b1000),
+                                        (3, 0b1010),
+                                        (3, 0b1100),
+                                        (3, 0b1110),
+                                        (4, 0b0000),
+                                        (4, 0b0001),
+                                        (4, 0b0010),
+                                        (4, 0b0011),
+                                        (4, 0b0100),
+                                        (4, 0b0101),
+                                        (4, 0b0110),
+                                        (4, 0b0111),
+                                        (4, 0b1000),
+                                        (4, 0b1001),
+                                        (4, 0b1010),
+                                        (4, 0b1011),
+                                        (4, 0b1100),
+                                        (4, 0b1101),
+                                        (4, 0b1110),
+                                        (4, 0b1111)];
 
     #[bench]
     fn bench_gen_bitmap(b: &mut Bencher) {
-        b.iter(||{
+        b.iter(|| {
             for item in &TEST_DATA {
                 let (mask, prefix) = *item;
                 test::black_box(gen_bitmap(prefix, mask));
