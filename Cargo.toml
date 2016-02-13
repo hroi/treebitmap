@@ -1,6 +1,6 @@
 [package]
 name = "treebitmap"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Hroi Sigurdsson <hroi@asdf.dk>"]
 description = "Fast IPv4/IPv6 lookup trie."
 license = "MIT"
@@ -11,7 +11,7 @@ keywords = ["ip", "networking", "trie", "cidr"]
 exclude = ["test/*"]
 
 [dependencies]
-clippy = {version = "*", optional = true}
+clippy = {version = "0.0.41", optional = true}
 
 [dev-dependencies]
 rand = "0.3.*"
@@ -19,3 +19,4 @@ lazy_static = "0.1.*"
 
 [features]
 full-bgp-tests = []
+dev = ["clippy"]
