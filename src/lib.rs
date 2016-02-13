@@ -160,13 +160,13 @@ impl<A, T> IpLookupTable<A, T> {
     }
 }
 
-/// Iterates over prefixes and associated values. The prefixes are returned in "tree"-order.
+/// Iterator over prefixes and associated values. The prefixes are returned in "tree"-order.
 pub struct Iter<'a, A, T: 'a> {
     inner: tree_bitmap::Iter<'a, T>,
     _addrtype: PhantomData<A>,
 }
 
-/// Mutable iterates over prefixes and associated values. The prefixes are returned in "tree"-order.
+/// Mutable iterator over prefixes and associated values. The prefixes are returned in "tree"-order.
 pub struct IterMut<'a, A, T: 'a> {
     inner: tree_bitmap::IterMut<'a, T>,
     _addrtype: PhantomData<A>,
