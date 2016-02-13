@@ -330,6 +330,16 @@ impl<'a, T: Sized> TreeBitmap<T> {
         }
     }
 
+    pub fn iter_mut(&self) -> IterMut<T> {
+        let root_hdl = self.root_handle();
+        let root_node = *self.trienodes.get(&root_hdl, 0);
+        IterMut{
+            inner: &self,
+            path: vec![PathElem{node: root_node, pos: 0}],
+            nibbles: vec![0],
+        }
+    }
+
 }
 
 #[derive(Debug)]
@@ -339,6 +349,12 @@ struct PathElem {
 }
 
 pub struct Iter<'a, T: 'a> {
+    inner: &'a TreeBitmap<T>,
+    path: Vec<PathElem>,
+    nibbles: Vec<u8>,
+}
+
+pub struct IterMut<'a, T: 'a> {
     inner: &'a TreeBitmap<T>,
     path: Vec<PathElem>,
     nibbles: Vec<u8>,
@@ -355,47 +371,70 @@ static PREFIX_OF_BIT: [u8; 32] = [
     0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111,
 ];
 
+fn next<T: Sized>(trie: & TreeBitmap<T>, path: &mut Vec<PathElem>, nibbles: &mut Vec<u8>) -> Option<(Vec<u8>, u32, AllocatorHandle, u32)>{
+    loop {
+        let mut path_elem = match path.pop() {
+            Some(elem) => elem,
+            None => return None
+        };
+        let cur_node = path_elem.node;
+        let mut cur_pos = path_elem.pos;
+        nibbles.pop();
+        // optim:
+        if cur_pos == 0 && cur_node.result_count() == 0 {
+            path_elem.pos = 16;
+            cur_pos = 16;
+        }
+        if path_elem.pos == 32 {
+            continue;
+        }
+        let nibble = PREFIX_OF_BIT[path_elem.pos];
+        let bitmap = 1 << (31 - path_elem.pos);
+
+        path_elem.pos += 1;
+        nibbles.push(nibble);
+        path.push(path_elem);
+        // match internal
+        if cur_pos < 16 || cur_node.is_endnode() {
+            let match_result = cur_node.match_internal(bitmap);
+            if let MatchResult::Match(result_hdl, result_index, matching_bit) = match_result {
+                let bits_matched = ((path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
+                return Some((nibbles.clone(), bits_matched, result_hdl, result_index));
+            }
+        } else {
+            if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
+                let child_node = trie.trienodes.get(&child_hdl, child_index);
+                nibbles.push(0);
+                path.push(PathElem{node: *child_node, pos: 0});
+            }
+        }
+    }
+}
+
 impl<'a, T: 'a> Iterator for Iter<'a, T> {
     type Item = (Vec<u8>, u32, &'a T); //(nibbles, masklen, &T)
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let mut path_elem = match self.path.pop() {
-                Some(elem) => elem,
-                None => return None
-            };
-            let cur_node = path_elem.node;
-            let mut cur_pos = path_elem.pos;
-            self.nibbles.pop();
-            // optim:
-            if cur_pos == 0 && cur_node.result_count() == 0 {
-                path_elem.pos = 16;
-                cur_pos = 16;
-            }
-            if path_elem.pos == 32 {
-                continue;
-            }
-            let nibble = PREFIX_OF_BIT[path_elem.pos];
-            let bitmap = 1 << (31 - path_elem.pos);
+        match next(self.inner, &mut self.path, &mut self.nibbles) {
+            Some((path, bits_matched, hdl, index)) => {
+                let value = self.inner.results.get(&hdl, index);
+                Some((path, bits_matched, value))
+            },
+            None => None
+        }
+    }
+}
 
-            path_elem.pos += 1;
-            self.nibbles.push(nibble);
-            self.path.push(path_elem);
-            // match internal
-            if cur_pos < 16 || cur_node.is_endnode() {
-                let match_result = cur_node.match_internal(bitmap);
-                if let MatchResult::Match(result_hdl, result_index, matching_bit) = match_result {
-                    let bits_matched = ((self.path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
-                    let value = self.inner.results.get(&result_hdl, result_index);
-                    return Some((self.nibbles.clone(), bits_matched, value));
-                }
-            } else {
-                if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
-                    let child_node = self.inner.trienodes.get(&child_hdl, child_index);
-                    self.nibbles.push(0);
-                    self.path.push(PathElem{node: *child_node, pos: 0});
-                }
-            }
+impl<'a, T: 'a> Iterator for IterMut<'a, T> {
+    type Item = (Vec<u8>, u32, &'a mut T); //(nibbles, masklen, &T)
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match next(self.inner, &mut self.path, &mut self.nibbles) {
+            Some((path, bits_matched, hdl, index)) => {
+                let mut value = self.inner.results.get_mut(&hdl, index);
+                Some((path, bits_matched, value))
+            },
+            None => None
         }
     }
 }
@@ -410,44 +449,13 @@ impl<'a, T: 'a> Iterator for IntoIter<T> {
     type Item = (Vec<u8>, u32, T); //(nibbles, masklen, T)
 
     fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let mut path_elem = match self.path.pop() {
-                Some(elem) => elem,
-                None => return None
-            };
-            let cur_node = path_elem.node;
-            let mut cur_pos = path_elem.pos;
-            self.nibbles.pop();
-            // optim:
-            if cur_pos == 0 && cur_node.result_count() == 0 {
-                path_elem.pos = 16;
-                cur_pos = 16;
-            }
-            if path_elem.pos == 32 {
-                continue;
-            }
-            let nibble = PREFIX_OF_BIT[path_elem.pos];
-            let bitmap = 1 << (31 - path_elem.pos);
-
-            path_elem.pos += 1;
-            self.nibbles.push(nibble);
-            self.path.push(path_elem);
-            // match internal
-            if cur_pos < 16 || cur_node.is_endnode() {
-                let match_result = cur_node.match_internal(bitmap);
-                if let MatchResult::Match(result_hdl, result_index, matching_bit) = match_result {
-                    let bits_matched = ((self.path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
-                    let value = self.inner.results.get(&result_hdl, result_index);
-                    let value = unsafe {::std::ptr::read(value)};
-                    return Some((self.nibbles.clone(), bits_matched, value));
-                }
-            } else {
-                if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
-                    let child_node = self.inner.trienodes.get(&child_hdl, child_index);
-                    self.nibbles.push(0);
-                    self.path.push(PathElem{node: *child_node, pos: 0});
-                }
-            }
+        match next(&self.inner, &mut self.path, &mut self.nibbles) {
+            Some((path, bits_matched, hdl, index)) => {
+                let value = self.inner.results.get(&hdl, index);
+                let value = unsafe { ptr::read(value) };
+                Some((path, bits_matched, value))
+            },
+            None => None
         }
     }
 }

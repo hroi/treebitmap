@@ -126,6 +126,9 @@ pub trait IpLookupTableOps<Addr, T> {
     /// assert_eq!(iter.next(), None);
     /// ```
     fn iter(&self) -> Iter<Addr, T>;
+
+    /// Mutable version of iter()
+    fn iter_mut(&self) -> IterMut<Addr, T>;
 }
 
 /// A fast, compressed IP lookup table.
@@ -160,6 +163,12 @@ impl<A, T> IpLookupTable<A, T> {
 /// Iterates over prefixes and associated values. The prefixes are returned in "tree"-order.
 pub struct Iter<'a, A, T: 'a> {
     inner: tree_bitmap::Iter<'a, T>,
+    _addrtype: PhantomData<A>,
+}
+
+/// Mutable iterates over prefixes and associated values. The prefixes are returned in "tree"-order.
+pub struct IterMut<'a, A, T: 'a> {
+    inner: tree_bitmap::IterMut<'a, T>,
     _addrtype: PhantomData<A>,
 }
 
@@ -198,10 +207,30 @@ macro_rules! impl_ops {
                     _addrtype: PhantomData,
                 }
             }
+
+            fn iter_mut(&self) -> IterMut<$addr_type,T> {
+                IterMut{
+                    inner: self.inner.iter_mut(),
+                    _addrtype: PhantomData,
+                }
+            }
         }
 
         impl<'a, T: 'a> Iterator for Iter<'a, $addr_type, T> {
             type Item = ($addr_type, u32, &'a T);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self.inner.next() {
+                    Some((nibbles, masklen, value)) => {
+                        Some((Address::from_nibbles(&nibbles[..]), masklen, value))
+                    },
+                    None => None,
+                }
+            }
+        }
+
+        impl<'a, T: 'a> Iterator for IterMut<'a, $addr_type, T> {
+            type Item = ($addr_type, u32, &'a mut T);
 
             fn next(&mut self) -> Option<Self::Item> {
                 match self.inner.next() {

@@ -78,6 +78,15 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
+    #[inline]
+    pub fn get_slot_entry_mut(&self, slot: u32, index: u32) -> &mut T {
+        let offset = slot + index;
+        unsafe {
+            let src_ptr = self.buf.ptr().offset(offset as isize);
+            &mut *src_ptr
+        }
+    }
+
     pub fn set_slot_entry(&mut self, slot: u32, index: u32, value: T) {
         debug_assert!(index < self.spacing);
         let offset = slot + index;
@@ -275,6 +284,15 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
+    #[inline]
+    pub fn get_mut(&self, hdl: &AllocatorHandle, index: u32) -> &mut T {
+        let bucket_index = choose_bucket(hdl.len) as usize;
+        //self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
+        unsafe {
+            (*self.buckets.get_unchecked(bucket_index)).get_slot_entry_mut(hdl.offset, index)
+        }
+    }
+
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {
         let mut bucket_index = choose_bucket(hdl.len) as usize;
         let next_bucket_index = choose_bucket(hdl.len + 1) as usize;
@@ -320,7 +338,6 @@ impl<T: Sized> Allocator<T> {
         hdl.len -= 1;
         ret
     }
-
 }
 
 #[cfg(test)]
@@ -350,6 +367,23 @@ mod tests {
         }
         for i in 0..spacing {
             assert_eq!(*bucket.get_slot_entry(slot, i), 1000 + i);
+        }
+    }
+
+    #[test]
+    fn bucketvec_get_slot_entry_mut() {
+        let spacing = 16;
+        let mut bucket: BucketVec<u32> = BucketVec::new(spacing);
+        let slot = bucket.alloc_slot();
+        for i in 0..spacing {
+            bucket.set_slot_entry(slot, i, 1000 + i);
+        }
+        for i in 0..spacing {
+            let mut x = bucket.get_slot_entry_mut(slot, i);
+            *x += 1;
+        }
+        for i in 0..spacing {
+            assert_eq!(*bucket.get_slot_entry_mut(slot, i), 1000 + i + 1);
         }
     }
 
@@ -419,6 +453,24 @@ mod tests {
 
         for i in 0..32 {
             assert_eq!(*alloc.get(&hdl, i), 1000+i);
+        }
+    }
+
+    #[test]
+    fn allocator_get_mut() {
+        let mut alloc = Allocator::<u32>::new();
+        let hdl = alloc.alloc(32);
+        for i in 0..32 {
+            alloc.set(&hdl, i, 1000+i);
+        }
+
+        for i in 0..32 {
+            let mut x = alloc.get_mut(&hdl, i);
+            *x += 1;
+        }
+
+        for i in 0..32 {
+            assert_eq!(*alloc.get(&hdl, i), 1000 + i + 1);
         }
     }
 
