@@ -21,14 +21,17 @@ use std::io::{BufReader, Error};
 use std::fs::File;
 
 lazy_static! {
-    static ref FULL_BGP_TABLE_IDENT: IpLookupTable<Ipv4Addr,(Ipv4Addr, u32)> = {load_bgp_dump(0).unwrap()};
-    static ref FULL_BGP_TABLE_UNIT: IpLookupTable<Ipv4Addr,()> = {load_bgp_dump_light(0).unwrap()};
-// static ref FULL_BGP6_TABLE_IDENT: Ipv6LookupTable<(Ipv6Addr, u32)> = {load_bgp6_dump(0).unwrap()};
-    static ref FULL_BGP6_TABLE_UNIT: IpLookupTable<Ipv6Addr,()> = {load_bgp6_dump_light(0).unwrap()};
+    static ref FULL_BGP_TABLE_IDENT: IpLookupTable<Ipv4Addr,(Ipv4Addr, u32)> =
+        load_bgp_dump(0).unwrap();
+    static ref FULL_BGP_TABLE_UNIT: IpLookupTable<Ipv4Addr,()> =
+        load_bgp_dump_light(0).unwrap();
+    static ref FULL_BGP6_TABLE_UNIT: IpLookupTable<Ipv6Addr,()> =
+        load_bgp6_dump_light(0).unwrap();
 }
 
 
-/// We store the the prefix in the value, so we can later compare it and check that it is the correct value for the key.
+/// We store the the prefix in the value, so we can later compare it and check
+/// that it is the correct value for the key.
 fn load_bgp6_dump_light(limit: u32) -> Result<IpLookupTable<Ipv6Addr, ()>, Error> {
     let mut tbm = IpLookupTable::<Ipv6Addr, ()>::with_capacity(512);
     let f = try!(File::open("test/bgp6-dump.txt"));

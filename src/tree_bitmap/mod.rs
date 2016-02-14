@@ -50,11 +50,13 @@ impl<'a, T: Sized> TreeBitmap<T> {
         *self.trienodes.get(&self.root_handle(), 0)
     }
 
-    /// Push down results encoded in the last 16 bits into child trie nodes. Makes ```node``` into a normal node.
+    /// Push down results encoded in the last 16 bits into child trie nodes.
+    /// Makes ```node``` into a normal node.
     fn push_down(&mut self, node: &mut Node) {
         debug_assert!(node.is_endnode(), "push_down: not an endnode");
         debug_assert!(node.child_ptr == 0);
-        // count number of internal nodes in the first 15 bits (those that will remain in place).
+        // count number of internal nodes in the first 15 bits (those that will
+        // remain in place).
         let internal_node_count = (node.internal() & 0xffff0000).count_ones();
         let remove_at = internal_node_count;
         // count how many nodes to push down
@@ -78,7 +80,8 @@ impl<'a, T: Sized> TreeBitmap<T> {
                 let insert_node_at = child_node_hdl.len;
                 self.trienodes.insert(&mut child_node_hdl, insert_node_at, child_node);
             }
-            // the result data may have moved to a smaller bucket, update the result pointer
+            // the result data may have moved to a smaller bucket, update the
+            // result pointer
             node.result_ptr = result_hdl.offset;
             node.child_ptr = child_node_hdl.offset;
             // no results from this node remain, free the result slot
@@ -88,7 +91,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
             }
         }
         node.make_normalnode();
-        // note: we do not need to touch the external bits, they are correct as are
+        // note: we do not need to touch the external bits
     }
 
     /// longest match lookup of ```nibbles```. Returns bits matched as u32, and reference to T.

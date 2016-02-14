@@ -107,7 +107,8 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
-    /// Insert ```value``` into ```slot``` at ```index```. Values to the right of ```index``` will be moved.
+    /// Insert ```value``` into ```slot``` at ```index```. Values to the right
+    /// of ```index``` will be moved.
     /// If all values have been set the last value will be lost.
     pub fn insert_slot_entry(&mut self, slot: u32, index: u32, value: T) {
         let offset = slot + index;
@@ -138,7 +139,8 @@ impl<T: Sized> BucketVec<T> {
         ret
     }
 
-    /// move contents from one bucket to another. Returns the offset of the new location.
+    /// move contents from one bucket to another. Returns the offset of the new
+    /// location.
     fn move_slot(&mut self, slot: u32, dst: &mut BucketVec<T>) -> u32 {
         let nitems = cmp::min(self.spacing, dst.spacing);
 
@@ -168,10 +170,6 @@ impl<T: Sized> BucketVec<T> {
     pub fn mem_usage(&self) -> usize {
         (mem::size_of::<T>() * self.buf.cap()) + (self.freelist.capacity() * mem::size_of::<u32>())
     }
-
-    // fn shrink_to_fit(&mut self) {
-    //    self.buf.shrink_to_fit(self.len as usize);
-    // }
 }
 
 static LEN2BUCKET: [u32; 33] = [0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7,
@@ -184,11 +182,15 @@ pub fn choose_bucket(len: u32) -> u32 {
     unsafe { *LEN2BUCKET.get_unchecked(len as usize) }
 }
 
-/// ```Allocator``` stores items in exponentially sized buckets (using ```BucketVec```s for backing).
+/// ```Allocator``` stores items in exponentially sized buckets (using
+/// ```BucketVec```s for backing).
 ///
-/// All interaction is done with an ```AllocatorHandle```used for tracking the collection size an location.
-/// The location of data is computed based on the collection sized and base pointer (stored in handle).
-/// When a bucket becomes full, the contents are moved to a larger bucket. In this case the allocator will update the caller's pointer.
+/// All interaction is done with an ```AllocatorHandle```used for tracking the
+/// collection size an location.
+/// The location of data is computed based on the collection sized and base
+/// pointer (stored in handle).
+/// When a bucket becomes full, the contents are moved to a larger bucket. In
+/// this case the allocator will update the caller's pointer.
 #[derive(Debug)]
 pub struct Allocator<T: Sized> {
     buckets: [BucketVec<T>; 9],
@@ -245,7 +247,8 @@ impl<T: Sized> Allocator<T> {
         }
     }
 
-    /// Returns the amount of memory allocated, and the amount of memory allocated but not used.
+    /// Returns the amount of memory allocated, and the amount of memory
+    /// allocated but not used.
     pub fn mem_usage(&self) -> usize {
         let mut total = 0;
         for buckvec in &self.buckets {

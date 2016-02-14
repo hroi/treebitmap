@@ -13,11 +13,13 @@
 //!
 //! This crate provides a datastructure for fast IP address lookups.
 //! It aims at fast lookup times, and a small memory footprint.
-//! A full IPv4 BGP table of more than 600k entries fits in less than 5 MB. A full IPv6 BGP table of more than 25k entries fits in less than 1 MB.
+//! A full IPv4 BGP table of more than 600k entries fits in less than 5 MB. A
+//! full IPv6 BGP table of more than 25k entries fits in less than 1 MB.
 //!
 //! Longest match lookups on full BGP IP tables take on the order of 100ns.
 //!
-//! The internal datastructure is based on the Tree-bitmap algorithm described by W. Eatherton, Z. Dittia, G. Varghes.
+//! The internal datastructure is based on the Tree-bitmap algorithm described
+//! by W. Eatherton, Z. Dittia, G. Varghes.
 //!
 
 #[macro_use]
@@ -36,7 +38,8 @@ use address::Address;
 
 ///The operations defined on the lookup table.
 pub trait IpLookupTableOps<Addr, T> {
-    /// Insert a value for the prefix designated by ip and masklen. If prefix existed previously, the old value is returned.
+    /// Insert a value for the prefix designated by ip and masklen. If prefix
+    /// existed previously, the old value is returned.
     /// # Example
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
@@ -52,7 +55,8 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn insert(&mut self, ip: Addr, masklen: u32, value: T) -> Option<T>;
 
-    /// Remove an entry from the lookup table. If the prefix existed previously, the value is returned.
+    /// Remove an entry from the lookup table. If the prefix existed previously,
+    /// the value is returned.
     /// # Example
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
@@ -69,7 +73,8 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn remove(&mut self, ip: Addr, masklen: u32) -> Option<T>;
 
-    /// Perform exact match lookup of ```ip```/```masklen``` and return the value.
+    /// Perform exact match lookup of ```ip```/```masklen``` and return the
+    /// value.
     /// # Example
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
@@ -86,7 +91,8 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn exact_match(&self, ip: Addr, masklen: u32) -> Option<&T>;
 
-    /// Perform longest match lookup of ```ip``` and return the best matching prefix, designated by ip, masklen, along with its value.
+    /// Perform longest match lookup of ```ip``` and return the best matching
+    /// prefix, designated by ip, masklen, along with its value.
     /// # Example
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
@@ -98,11 +104,13 @@ pub trait IpLookupTableOps<Addr, T> {
     /// table.insert(less_specific, 32, "foo");
     /// table.insert(more_specific, 48, "bar");
     ///
-    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xdead, 0xbeef, 0xcafe, 0xbabe, 0, 1);
+    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xdead, 0xbeef,
+    ///                              0xcafe, 0xbabe, 0, 1);
     /// let result = table.longest_match(lookupip);
     /// assert_eq!(result, Some((more_specific, 48, &"bar")));
     ///
-    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xcafe, 0xf00, 0xf00, 0xf00, 0, 1);
+    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xcafe, 0xf00,
+    ///                              0xf00, 0xf00, 0, 1);
     /// let result = table.longest_match(lookupip);
     /// assert_eq!(result, Some((less_specific, 32, &"foo")));
     /// ```
@@ -160,19 +168,22 @@ impl<A, T> IpLookupTable<A, T> {
     }
 }
 
-/// Iterator over prefixes and associated values. The prefixes are returned in "tree"-order.
+/// Iterator over prefixes and associated values. The prefixes are returned in
+/// "tree"-order.
 pub struct Iter<'a, A, T: 'a> {
     inner: tree_bitmap::Iter<'a, T>,
     _addrtype: PhantomData<A>,
 }
 
-/// Mutable iterator over prefixes and associated values. The prefixes are returned in "tree"-order.
+/// Mutable iterator over prefixes and associated values. The prefixes are
+/// returned in "tree"-order.
 pub struct IterMut<'a, A, T: 'a> {
     inner: tree_bitmap::IterMut<'a, T>,
     _addrtype: PhantomData<A>,
 }
 
-/// Converts ```IpLookupTable``` into an iterator. The prefixes are returned in "tree"-order.
+/// Converts ```IpLookupTable``` into an iterator. The prefixes are returned in
+/// "tree"-order.
 pub struct IntoIter<A, T> {
     inner: tree_bitmap::IntoIter<T>,
     _addrtype: PhantomData<A>,
@@ -196,7 +207,8 @@ macro_rules! impl_ops {
 
             fn longest_match(&self, ip: $addr_type) -> Option<($addr_type, u32, &T)> {
                 match self.inner.longest_match(&ip.nibbles()) {
-                    Some((bits_matched,value)) => Some((ip.mask(bits_matched), bits_matched, value)),
+                    Some((bits_matched,value)) => Some((ip.mask(bits_matched),
+                                                        bits_matched, value)),
                     None => None
                 }
             }

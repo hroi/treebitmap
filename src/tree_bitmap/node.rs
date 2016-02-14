@@ -69,25 +69,38 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 
 /// ```Node ``` encodes result and child node pointers in a bitmap.
 ///
-/// A trie node can encode up to 31 results when acting as an "end node", or 16 results and 16 children/subtrees.
+/// A trie node can encode up to 31 results when acting as an "end node", or 16
+/// results and 16 children/subtrees.
 ///
 /// Each bit in the bitmap has the following meanings:
 ///
-/// | bit   | 0 |  1 |  2 |  3  |   4 |   5 |   6 |    7 |    8 |    9 |   10 |   11 |   12 |   13 |   14 |          15 |
-/// |-------|---|----|----|-----|-----|-----|-----|------|------|------|------|------|------|------|------|-------------|
-/// | match | * | 0* | 1* | 00* | 01* | 10* | 11* | 000* | 001* | 010* | 011* | 100* | 101* | 110* | 111* | endnode-bit |
+/// | bit   | 0 |  1 |  2 |  3  |   4 |   5 |   6 |    7 |
+/// |-------|---|----|----|-----|-----|-----|-----|------|
+/// | match | * | 0* | 1* | 00* | 01* | 10* | 11* | 000* |
 ///
-/// If the end node bit is set, the last bits are also used to match internal nodes:
+/// | bit   |    8 |    9 |   10 |   11 |   12 |   13 |   14 |          15 |
+/// |-------|------|------|------|------|------|------|------|-------------|
+/// | match | 001* | 010* | 011* | 100* | 101* | 110* | 111* | endnode-bit |
+
+/// If the end node bit is set, the last bits are also used to match internal
+/// nodes:
 ///
-/// | bit   |    16 |    17 |    18 |    19 |    20 |    21 |    22 |    23 |    24 |    25 |    26 |    27 |    28 |    29 |    30 |    31 |
-/// |-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|
-/// | match | 0000* | 0001* | 0010* | 0011* | 0100* | 0101* | 0110* | 0111* | 1000* | 1001* | 1010* | 1011* | 1100* | 1101* | 1110* | 1111* |
+/// | bit   |    16 |    17 |    18 |    19 |    20 |    21 |    22 |    23 |
+/// |-------|-------|-------|-------|-------|-------|-------|-------|-------|
+/// | match | 0000* | 0001* | 0010* | 0011* | 0100* | 0101* | 0110* | 0111* |
 ///
-/// The location of the result value is computed with the ```result_ptr``` base pointer and the number of bits set left of the matching bit.
+/// | bit   |    24 |    25 |    26 |    27 |    28 |    29 |    30 |    31 |
+/// |-------|-------|-------|-------|-------|-------|-------|-------|-------|
+/// | match | 1000* | 1001* | 1010* | 1011* | 1100* | 1101* | 1110* | 1111* |
+
+/// The location of the result value is computed with the ```result_ptr``` base
+/// pointer and the number of bits set left of the matching bit.
 ///
-/// If the endnode bit is not set, the last 16 bits encodes pointers to child nodes.
+/// If the endnode bit is not set, the last 16 bits encodes pointers to child
+/// nodes.
 /// If bit N is set it means that a child node with segment value N is present.
-/// The pointer to the child node is then computed with the ```child_ptr``` base pointer and the number of bits set left of N.
+/// The pointer to the child node is then computed with the ```child_ptr``` base
+/// pointer and the number of bits set left of N.
 #[derive(Clone,Copy)]
 pub struct Node {
     /// child/result bitmap
@@ -98,14 +111,8 @@ pub struct Node {
     pub result_ptr: u32,
 }
 
-pub const BIT_MATCH: [u32;32] = [
-    0,
-    1, 1,
-    2, 2, 2, 2,
-    3, 3, 3, 3, 3, 3, 3, 3,
-    0,
-    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-];
+pub const BIT_MATCH: [u32; 32] = [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0, 4, 4, 4, 4, 4,
+                                  4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const BIT_MEANING: &'static [&'static str] = &[
@@ -114,7 +121,8 @@ const BIT_MEANING: &'static [&'static str] = &[
     "00*", "01*", "10*", "11*",
     "000*", "001*", "010*", "011*", "100*", "101*", "110*", "111*",
     "END",
-    "0000*", "0001*", "0010*", "0011*", "0100*", "0101*", "0110*", "0111*", "1000*", "1001*", "1010*", "1011*", "1100*", "1101*", "1110*", "1111*",
+    "0000*", "0001*", "0010*", "0011*", "0100*", "0101*", "0110*", "0111*",
+    "1000*", "1001*", "1010*", "1011*", "1100*", "1101*", "1110*", "1111*",
 ];
 
 use std::fmt;
@@ -254,9 +262,6 @@ impl Node {
     }
 
     /// Set an internal bit.
-    ///
-    /// # Panics
-    /// + if an attempt is made to set an already set internal bit or any non-internal bit.
     #[inline]
     pub fn set_internal(&mut self, bitmap: u32) {
         debug_assert!(bitmap.count_ones() == 1,
@@ -272,9 +277,6 @@ impl Node {
     }
 
     /// Unset an internal bit.
-    ///
-    /// # Panics
-    /// + if an attempt is made to set an already set internal bit or any non-internal bit.
     #[inline]
     pub fn unset_internal(&mut self, bitmap: u32) {
         debug_assert!(bitmap.count_ones() == 1,
@@ -291,10 +293,6 @@ impl Node {
     }
 
     /// Set an external bit.
-    ///
-    /// # Panics
-    /// + if an attempt is made to set an already set external bit or any non-external bit.
-    /// + if the node is an endnode.
     #[inline]
     pub fn set_external(&mut self, bitmap: u32) {
         debug_assert!(!self.is_endnode(),
