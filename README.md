@@ -25,8 +25,8 @@ An example illustration of a trie representing a routing table containing
 ## Internal trie datastructure basics
 ```Node ``` encodes result and child node pointers in a bitmap.
 
-A trie node can encode up to 31 results when acting as an "end node", or 16
-results and 16 children/subtrees as a normal/internal node.
+A trie node can encode up to 31 results when acting as an "end node", or 15
+results and 16 children/subtrees when acting as a normal/internal node.
 
 Each bit in the bitmap indicates a bit matching pattern:
 
