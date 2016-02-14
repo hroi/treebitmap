@@ -1,4 +1,4 @@
-# Tree-Bitmap: Fast IP prefix lookup table for IPv4/IPv6 prefixes
+# Tree-Bitmap: Fast lookup table for IPv4/IPv6 prefixes
 
 This crate provides a datastructure for fast IP address lookups.
 It aims at fast lookup times, and a reasonable memory footprint.
