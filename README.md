@@ -26,9 +26,9 @@ An example illustration of a trie representing a routing table containing
 ```Node ``` encodes result and child node pointers in a bitmap.
 
 A trie node can encode up to 31 results when acting as an "end node", or 16
-results and 16 children/subtrees.
+results and 16 children/subtrees as a normal/internal node.
 
-Each bit in the indicate a bit matching pattern:
+Each bit in the bitmap indicate a bit matching pattern:
 
 | bit   | 0 |  1 |  2 |  3  |   4 |   5 |   6 |    7 |
 |-------|---|----|----|-----|-----|-----|-----|------|
@@ -38,7 +38,7 @@ Each bit in the indicate a bit matching pattern:
 |-------|------|------|------|------|------|------|------|-------------|
 | match | 001* | 010* | 011* | 100* | 101* | 110* | 111* | endnode-bit |
 
-The last bit here does not indicate a pattern. It instead indicates if this 
+The last bit here does not indicate a pattern. It instead indicates if this
 node is an "end node". End nodes carry double the amount of results but can't
 encode any child pointers.
 
