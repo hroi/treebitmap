@@ -1,4 +1,4 @@
-# Tree-Bitmap: Fast IP lookup table for IPv4/IPv6 prefixes
+# Tree-Bitmap: Fast IP prefix lookup table for IPv4/IPv6 prefixes
 
 This crate provides a datastructure for fast IP address lookups.
 It aims at fast lookup times, and a reasonable memory footprint.
@@ -28,7 +28,7 @@ An example illustration of a trie representing a routing table containing
 A trie node can encode up to 31 results when acting as an "end node", or 16
 results and 16 children/subtrees as a normal/internal node.
 
-Each bit in the bitmap indicate a bit matching pattern:
+Each bit in the bitmap indicates a bit matching pattern:
 
 | bit   | 0 |  1 |  2 |  3  |   4 |   5 |   6 |    7 |
 |-------|---|----|----|-----|-----|-----|-----|------|
