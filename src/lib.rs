@@ -6,9 +6,6 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-#![feature(test)]
-#![feature(alloc)]
-
 //! # Fast IP lookup table for IPv4/IPv6 prefixes
 //!
 //! This crate provides a datastructure for fast IP address lookups.
@@ -22,11 +19,6 @@
 //! by W. Eatherton, Z. Dittia, G. Varghes.
 //!
 
-#[macro_use]
-#[cfg(test)]
-extern crate lazy_static;
-extern crate alloc; // for RawVec
-extern crate test;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::marker::PhantomData;
 

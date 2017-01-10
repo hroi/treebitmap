@@ -10,11 +10,6 @@ W. Eatherton, Z. Dittia, G. Varghes.
 
 Rustdoc: https://hroi.github.io/treebitmap/
 
-## Requirements
-
-Treebitmap uses ```RawVec``` for its allocation, which currently requires Rust
-nightly.
-
 ## Illustration
 An example illustration of a trie representing a routing table containing
 ```0.0.0.0/0``` (foo), ```10.0.0.0/8``` (bar), ```172.16.0.0/12``` (baz) and

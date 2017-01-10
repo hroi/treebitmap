@@ -9,7 +9,48 @@ use std::mem;
 use std::slice;
 use std::cmp;
 
-use alloc::raw_vec::RawVec;
+//use alloc::raw_vec::RawVec;
+
+pub struct RawVec<T> {
+    mem: *mut T,
+    cap: usize,
+}
+
+impl<T> RawVec<T> {
+    pub fn with_capacity(cap: usize) -> RawVec<T> {
+        let mut vec = Vec::<T>::with_capacity(cap);
+        let ptr = vec.as_mut_ptr();
+        mem::forget(vec);
+        RawVec {
+            mem: ptr,
+            cap: cap,
+        }
+    }
+
+    pub fn cap(&self) -> usize {
+        self.cap
+    }
+
+    pub fn ptr(&self) -> *mut T {
+        self.mem
+    }
+
+    pub fn reserve(&mut self, used_cap: usize, extra_cap: usize) {
+        let mut vec = unsafe { Vec::<T>::from_raw_parts(self.mem, used_cap, self.cap) };
+        vec.reserve(extra_cap);
+        self.cap = vec.capacity();
+        self.mem = vec.as_mut_ptr();
+        mem::forget(vec);
+    }
+}
+
+impl<T> Drop for RawVec<T> {
+    fn drop(&mut self) {
+        unsafe {
+            Vec::from_raw_parts(self.mem, 0, self.cap);
+        }
+    }
+}
 
 pub struct BucketVec<T> {
     buf: RawVec<T>,
@@ -353,7 +394,6 @@ impl<T: Sized> Allocator<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test::{Bencher, black_box};
 
     #[test]
     fn bucketvec_move_to() {
@@ -484,75 +524,4 @@ mod tests {
         }
     }
 
-    #[bench]
-    fn choose_bucket_32(b: &mut Bencher) {
-        b.iter(|| {
-            for i in 0..32 {
-                black_box(choose_bucket(i));
-            }
-        })
-    }
-
-    #[bench]
-    fn alloc_set(b: &mut Bencher) {
-        let mut alloc: Allocator<u32> = Allocator::new();
-        let hdl = alloc.alloc(4);
-        b.iter(|| {
-            black_box(alloc.set(&hdl, 1, 100));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_01(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(0);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_02(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(1);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_04(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(2);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_08(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(4);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_16(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(8);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
-
-    #[bench]
-    fn alloc_and_insert_32(b: &mut Bencher) {
-        let mut alloc = Allocator::<u32>::new();
-        b.iter(|| {
-            let mut hdl = alloc.alloc(16);
-            black_box(alloc.insert(&mut hdl, 0, 123123123));
-        });
-    }
 }

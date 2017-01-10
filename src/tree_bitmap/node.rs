@@ -370,9 +370,7 @@ pub enum MatchResult {
 
 #[cfg(test)]
 mod tests {
-    extern crate test;
     use super::*;
-    use self::test::{Bencher, black_box};
 
     #[test]
     fn test_trienode_new() {
@@ -400,61 +398,4 @@ mod tests {
         }
     }
 
-    #[bench]
-    fn bench_match_segment(b: &mut Bencher) {
-        let mut node = Node::new();
-        node.make_endnode();
-        node.set_internal(MSB);      // *
-        node.set_internal(MSB >> 1); // 0*
-        node.set_internal(MSB >> 2); // 1*
-        node.set_internal(MSB >> 4); // 01*
-        node.set_internal(MSB >> 9); // 010*
-        let segment = 0b1111;
-        b.iter(|| {
-            black_box(node.match_segment(segment));
-        });
-    }
-
-
-    const TEST_DATA: [(u32, u8); 31] = [(0, 0b0000),
-                                        (1, 0b0000),
-                                        (1, 0b1000),
-                                        (2, 0b0000),
-                                        (2, 0b0100),
-                                        (2, 0b1000),
-                                        (2, 0b1100),
-                                        (3, 0b0000),
-                                        (3, 0b0010),
-                                        (3, 0b0100),
-                                        (3, 0b0110),
-                                        (3, 0b1000),
-                                        (3, 0b1010),
-                                        (3, 0b1100),
-                                        (3, 0b1110),
-                                        (4, 0b0000),
-                                        (4, 0b0001),
-                                        (4, 0b0010),
-                                        (4, 0b0011),
-                                        (4, 0b0100),
-                                        (4, 0b0101),
-                                        (4, 0b0110),
-                                        (4, 0b0111),
-                                        (4, 0b1000),
-                                        (4, 0b1001),
-                                        (4, 0b1010),
-                                        (4, 0b1011),
-                                        (4, 0b1100),
-                                        (4, 0b1101),
-                                        (4, 0b1110),
-                                        (4, 0b1111)];
-
-    #[bench]
-    fn bench_gen_bitmap(b: &mut Bencher) {
-        b.iter(|| {
-            for item in &TEST_DATA {
-                let (mask, prefix) = *item;
-                test::black_box(gen_bitmap(prefix, mask));
-            }
-        });
-    }
 }
