@@ -9,9 +9,7 @@ use std::mem;
 use std::slice;
 use std::cmp;
 
-//use alloc::raw_vec::RawVec;
-
-pub struct RawVec<T> {
+struct RawVec<T> {
     mem: *mut T,
     cap: usize,
 }
@@ -51,6 +49,8 @@ impl<T> Drop for RawVec<T> {
         }
     }
 }
+
+unsafe impl<T> Sync for RawVec<T> where T: Sync {}
 
 pub struct BucketVec<T> {
     buf: RawVec<T>,
