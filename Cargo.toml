@@ -1,6 +1,6 @@
 [package]
 name = "treebitmap"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Hroi Sigurdsson <hroi@asdf.dk>"]
 description = "Fast IPv4/IPv6 lookup trie."
 license = "MIT"
@@ -8,4 +8,4 @@ repository = "https://github.com/hroi/treebitmap"
 documentation = "https://hroi.github.com/treebitmap/"
 readme = "README.md"
 keywords = ["ip", "networking", "trie", "cidr"]
-exclude = ["test/*"]
+exclude = ["tests/*", "benches/*"]
