@@ -52,6 +52,8 @@ impl<T> Drop for RawVec<T> {
 
 unsafe impl<T> Sync for RawVec<T> where T: Sync {}
 
+unsafe impl<T> Send for RawVec<T> where T: Send {}
+
 pub struct BucketVec<T> {
     buf: RawVec<T>,
     freelist: Vec<u32>,
