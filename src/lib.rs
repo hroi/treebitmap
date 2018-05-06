@@ -273,7 +273,6 @@ macro_rules! impl_ops {
 impl_ops!(Ipv4Addr);
 impl_ops!(Ipv6Addr);
 
-
 #[cfg(test)]
 mod tests;
 #[cfg(all(test, feature = "full-bgp-tests"))]

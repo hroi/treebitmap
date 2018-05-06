@@ -101,7 +101,7 @@ pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
 /// If bit N is set it means that a child node with segment value N is present.
 /// The pointer to the child node is then computed with the ```child_ptr``` base
 /// pointer and the number of bits set left of N.
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub struct Node {
     /// child/result bitmap
     bitmap: u32, // first 16 bits: internal, last 16 bits: child bitmap
@@ -111,8 +111,9 @@ pub struct Node {
     pub result_ptr: u32,
 }
 
-pub const BIT_MATCH: [u32; 32] = [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0, 4, 4, 4, 4, 4,
-                                  4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+pub const BIT_MATCH: [u32; 32] = [
+    0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+];
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const BIT_MEANING: &[&str] = &[
@@ -150,24 +151,23 @@ impl fmt::Debug for Node {
 
         if self.is_endnode() {
             return f.debug_struct("EndNode")
-                    .field("bitmap", &bitmap_string)
-                    .field("internal", &int_nodes)
-                    .field("result_ptr", &self.result_ptr)
-                    .finish();
+                .field("bitmap", &bitmap_string)
+                .field("internal", &int_nodes)
+                .field("result_ptr", &self.result_ptr)
+                .finish();
         }
         if self.is_blank() {
             return f.debug_struct("BlankNode").finish();
         }
         f.debug_struct("InternalNode")
-         .field("bitmap", &bitmap_string)
-         .field("internal", &int_nodes)
-         .field("children", &child_nodes)
-         .field("child_ptr", &self.child_ptr)
-         .field("result_ptr", &self.result_ptr)
-         .finish()
+            .field("bitmap", &bitmap_string)
+            .field("internal", &int_nodes)
+            .field("children", &child_nodes)
+            .field("child_ptr", &self.child_ptr)
+            .field("result_ptr", &self.result_ptr)
+            .finish()
     }
 }
-
 
 impl Node {
     /// Get a fresh, blank node.
@@ -223,8 +223,10 @@ impl Node {
     #[inline]
     pub fn make_endnode(&mut self) {
         debug_assert!(!self.is_endnode(), "make_endnode: already an endnode.");
-        debug_assert!(self.external() == 0,
-                      "cannot make into endnode when there are children present");
+        debug_assert!(
+            self.external() == 0,
+            "cannot make into endnode when there are children present"
+        );
         self.bitmap |= END_BIT
     }
 
@@ -264,14 +266,20 @@ impl Node {
     /// Set an internal bit.
     #[inline]
     pub fn set_internal(&mut self, bitmap: u32) {
-        debug_assert!(bitmap.count_ones() == 1,
-                      "set_internal: bitmap must contain exactly one bit");
-        debug_assert!(bitmap & END_BIT == 0,
-                      "set_internal: not permitted to set the endnode bit");
+        debug_assert!(
+            bitmap.count_ones() == 1,
+            "set_internal: bitmap must contain exactly one bit"
+        );
+        debug_assert!(
+            bitmap & END_BIT == 0,
+            "set_internal: not permitted to set the endnode bit"
+        );
         debug_assert!(self.bitmap & bitmap == 0, "set_internal: bit already set");
         if !self.is_endnode() {
-            debug_assert!(bitmap & EXT_MASK == 0,
-                          "set_internal: attempted to set external bit");
+            debug_assert!(
+                bitmap & EXT_MASK == 0,
+                "set_internal: attempted to set external bit"
+            );
         }
         self.bitmap |= bitmap
     }
@@ -279,15 +287,23 @@ impl Node {
     /// Unset an internal bit.
     #[inline]
     pub fn unset_internal(&mut self, bitmap: u32) {
-        debug_assert!(bitmap.count_ones() == 1,
-                      "unset_internal: bitmap must contain exactly one bit");
-        debug_assert!(bitmap & END_BIT == 0,
-                      "unset_internal: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == bitmap,
-                      "unset_internal: bit already unset");
+        debug_assert!(
+            bitmap.count_ones() == 1,
+            "unset_internal: bitmap must contain exactly one bit"
+        );
+        debug_assert!(
+            bitmap & END_BIT == 0,
+            "unset_internal: not permitted to set the endnode bit"
+        );
+        debug_assert!(
+            self.bitmap & bitmap == bitmap,
+            "unset_internal: bit already unset"
+        );
         if !self.is_endnode() {
-            debug_assert!(bitmap & EXT_MASK == 0,
-                          "unset_internal: attempted to set external bit");
+            debug_assert!(
+                bitmap & EXT_MASK == 0,
+                "unset_internal: attempted to set external bit"
+            );
         }
         self.bitmap ^= bitmap
     }
@@ -295,26 +311,42 @@ impl Node {
     /// Set an external bit.
     #[inline]
     pub fn set_external(&mut self, bitmap: u32) {
-        debug_assert!(!self.is_endnode(),
-                      "set_external: endnodes don't have external bits");
-        debug_assert!(bitmap & END_BIT == 0,
-                      "set_external: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == 0,
-                      "set_external: not permitted to set an already set bit");
-        debug_assert!(bitmap & INT_MASK == 0,
-                      "set_external: not permitted to set an internal bit");
+        debug_assert!(
+            !self.is_endnode(),
+            "set_external: endnodes don't have external bits"
+        );
+        debug_assert!(
+            bitmap & END_BIT == 0,
+            "set_external: not permitted to set the endnode bit"
+        );
+        debug_assert!(
+            self.bitmap & bitmap == 0,
+            "set_external: not permitted to set an already set bit"
+        );
+        debug_assert!(
+            bitmap & INT_MASK == 0,
+            "set_external: not permitted to set an internal bit"
+        );
         self.bitmap |= bitmap
     }
 
     pub fn unset_external(&mut self, bitmap: u32) {
-        debug_assert!(!self.is_endnode(),
-                      "unset_external: endnodes don't have external bits");
-        debug_assert!(bitmap & END_BIT == 0,
-                      "unset_external: not permitted to set the endnode bit");
-        debug_assert!(self.bitmap & bitmap == bitmap,
-                      "unset_external: not permitted to unset an already unset bit");
-        debug_assert!(bitmap & INT_MASK == 0,
-                      "unset_external: not permitted to set an internal bit");
+        debug_assert!(
+            !self.is_endnode(),
+            "unset_external: endnodes don't have external bits"
+        );
+        debug_assert!(
+            bitmap & END_BIT == 0,
+            "unset_external: not permitted to set the endnode bit"
+        );
+        debug_assert!(
+            self.bitmap & bitmap == bitmap,
+            "unset_external: not permitted to unset an already unset bit"
+        );
+        debug_assert!(
+            bitmap & INT_MASK == 0,
+            "unset_external: not permitted to set an internal bit"
+        );
         self.bitmap ^= bitmap
     }
 
@@ -364,8 +396,8 @@ impl Node {
 #[derive(Debug)]
 pub enum MatchResult {
     Match(AllocatorHandle, u32, u32), // result_handle, offset, matching bits
-    Chase(AllocatorHandle, u32), // child_handle, offset
-    None, // Node does not match
+    Chase(AllocatorHandle, u32),      // child_handle, offset
+    None,                             // Node does not match
 }
 
 #[cfg(test)]
@@ -382,7 +414,7 @@ mod tests {
         // case 1
         let mut node = Node::new();
         node.make_endnode();
-        node.set_internal(MSB);      // *
+        node.set_internal(MSB); // *
         node.set_internal(MSB >> 1); // 0*
         node.set_internal(MSB >> 2); // 1*
         node.set_internal(MSB >> 4); // 01*
