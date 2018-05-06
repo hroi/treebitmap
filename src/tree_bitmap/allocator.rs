@@ -21,7 +21,7 @@ impl<T> RawVec<T> {
         mem::forget(vec);
         RawVec {
             mem: ptr,
-            cap: cap,
+            cap,
         }
     }
 
@@ -81,7 +81,7 @@ impl<T: Sized> BucketVec<T> {
             buf: RawVec::with_capacity(capacity),
             freelist: Vec::with_capacity(32),
             len: 0,
-            spacing: spacing,
+            spacing,
         }
     }
 
@@ -252,8 +252,8 @@ impl AllocatorHandle {
     #[inline]
     pub fn generate(len: u32, offset: u32) -> AllocatorHandle {
         AllocatorHandle {
-            len: len,
-            offset: offset,
+            len,
+            offset,
         }
     }
 }

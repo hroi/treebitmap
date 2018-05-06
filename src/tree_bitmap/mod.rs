@@ -57,11 +57,11 @@ impl<'a, T: Sized> TreeBitmap<T> {
         debug_assert!(node.child_ptr == 0);
         // count number of internal nodes in the first 15 bits (those that will
         // remain in place).
-        let internal_node_count = (node.internal() & 0xffff0000).count_ones();
+        let internal_node_count = (node.internal() & 0xffff_0000).count_ones();
         let remove_at = internal_node_count;
         // count how many nodes to push down
-        // let nodes_to_pushdown = (node.bitmap & 0x0000ffff).count_ones();
-        let nodes_to_pushdown = (node.internal() & 0x0000ffff).count_ones();
+        // let nodes_to_pushdown = (node.bitmap & 0x0000_ffff).count_ones();
+        let nodes_to_pushdown = (node.internal() & 0x0000_ffff).count_ones();
         if nodes_to_pushdown > 0 {
             let mut result_hdl = node.result_handle();
             let mut child_node_hdl = self.trienodes.alloc(0);
@@ -414,15 +414,13 @@ fn next<T: Sized>(trie: &TreeBitmap<T>,
                                    node::BIT_MATCH[matching_bit as usize];
                 return Some((nibbles.clone(), bits_matched, result_hdl, result_index));
             }
-        } else {
-            if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
-                let child_node = trie.trienodes.get(&child_hdl, child_index);
-                nibbles.push(0);
-                path.push(PathElem {
-                    node: *child_node,
-                    pos: 0,
-                });
-            }
+        } else if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
+            let child_node = trie.trienodes.get(&child_hdl, child_index);
+            nibbles.push(0);
+            path.push(PathElem {
+                node: *child_node,
+                pos: 0,
+            });
         }
     }
 }

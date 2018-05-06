@@ -5,8 +5,8 @@
 
 use super::allocator::AllocatorHandle;
 
-pub const INT_MASK: u32 = 0xffff0000;
-pub const EXT_MASK: u32 = 0x0000ffff;
+pub const INT_MASK: u32 = 0xffff_0000;
+pub const EXT_MASK: u32 = 0x0000_ffff;
 pub const END_BIT: u32 = 1 << 16;
 pub const END_BIT_MASK: u32 = !END_BIT; // all bits except the end node bit
 
@@ -115,7 +115,7 @@ pub const BIT_MATCH: [u32; 32] = [0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0
                                   4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
-const BIT_MEANING: &'static [&'static str] = &[
+const BIT_MEANING: &[&str] = &[
     "*",
     "0*", "1*",
     "00*", "01*", "10*", "11*",
