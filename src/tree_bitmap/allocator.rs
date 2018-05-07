@@ -373,7 +373,7 @@ impl<T: Sized> Allocator<T> {
             debug_assert!(next_bucket_index > 0);
             let ptr: *mut BucketVec<T> = &mut self.buckets[0];
             let dst: &mut BucketVec<T> =
-                unsafe { mem::transmute(ptr.offset(next_bucket_index as isize)) };
+                unsafe { &mut *ptr.offset(next_bucket_index as isize) };
             slot = self.buckets[bucket_index].move_slot(slot, dst);
             bucket_index = next_bucket_index;
         }
@@ -396,7 +396,7 @@ impl<T: Sized> Allocator<T> {
             debug_assert!(next_bucket_index < self.buckets.len());
             let buckets_base_ptr: *mut BucketVec<T> = &mut self.buckets[0];
             let dst: &mut BucketVec<T> =
-                unsafe { mem::transmute(buckets_base_ptr.offset(next_bucket_index as isize)) };
+                unsafe { &mut *buckets_base_ptr.offset(next_bucket_index as isize) };
             slot = self.buckets[bucket_index].move_slot(slot, dst);
         }
 
