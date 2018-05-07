@@ -25,11 +25,13 @@ use tree_bitmap::TreeBitmap;
 mod address;
 use address::Address;
 
-///The operations defined on the lookup table.
+/// The operations defined on the lookup table.
 pub trait IpLookupTableOps<Addr, T> {
     /// Insert a value for the prefix designated by ip and masklen. If prefix
     /// existed previously, the old value is returned.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -46,7 +48,9 @@ pub trait IpLookupTableOps<Addr, T> {
 
     /// Remove an entry from the lookup table. If the prefix existed previously,
     /// the value is returned.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -62,9 +66,11 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn remove(&mut self, ip: Addr, masklen: u32) -> Option<T>;
 
-    /// Perform exact match lookup of ```ip```/```masklen``` and return the
+    /// Perform exact match lookup of `ip`/`masklen` and return the
     /// value.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -80,9 +86,11 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn exact_match(&self, ip: Addr, masklen: u32) -> Option<&T>;
 
-    /// Perform longest match lookup of ```ip``` and return the best matching
+    /// Perform longest match lookup of `ip` and return the best matching
     /// prefix, designated by ip, masklen, along with its value.
+    ///
     /// # Example
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -106,7 +114,9 @@ pub trait IpLookupTableOps<Addr, T> {
     fn longest_match(&self, ip: Addr) -> Option<(Addr, u32, &T)>;
 
     /// Returns iterator over prefixes and values.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
