@@ -197,11 +197,11 @@ macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
 
-            fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T>{
+            fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T> {
                 self.inner.insert(&ip.nibbles(), masklen, value)
             }
 
-            fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T>{
+            fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T> {
                 self.inner.remove(&ip.nibbles(), masklen)
             }
 
@@ -211,21 +211,21 @@ macro_rules! impl_ops {
 
             fn longest_match(&self, ip: $addr_type) -> Option<($addr_type, u32, &T)> {
                 match self.inner.longest_match(&ip.nibbles()) {
-                    Some((bits_matched,value)) => Some((ip.mask(bits_matched),
+                    Some((bits_matched, value)) => Some((ip.mask(bits_matched),
                                                         bits_matched, value)),
                     None => None
                 }
             }
 
             fn iter(&self) -> Iter<$addr_type,T> {
-                Iter{
+                Iter {
                     inner: self.inner.iter(),
                     _addrtype: PhantomData,
                 }
             }
 
             fn iter_mut(&self) -> IterMut<$addr_type,T> {
-                IterMut{
+                IterMut {
                     inner: self.inner.iter_mut(),
                     _addrtype: PhantomData,
                 }
