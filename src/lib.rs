@@ -165,6 +165,11 @@ impl<A, T> IpLookupTable<A, T> {
     pub fn mem_usage(&self) -> (usize, usize) {
         self.inner.mem_usage()
     }
+
+    /// Return number of items inside table.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 /// Iterator over prefixes and associated values. The prefixes are returned in

@@ -16,6 +16,7 @@ use std::ptr;
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<Node>,
     results: Allocator<T>,
+    len: usize,
     should_drop: bool, // drop contents on drop?
 }
 
@@ -34,6 +35,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
         TreeBitmap {
             trienodes: trieallocator,
             results: Allocator::with_capacity(n),
+            len: 0,
             should_drop: true,
         }
     }
@@ -189,6 +191,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
                 } else {
                     cur_node.set_internal(bitmap & node::END_BIT_MASK);
                     self.results.insert(&mut result_hdl, result_index, value); // add result
+                    self.len += 1;
                 }
                 cur_node.result_ptr = result_hdl.offset;
                 self.trienodes.set(&cur_hdl, cur_index, cur_node); // save trie node
@@ -240,6 +243,10 @@ impl<'a, T: Sized> TreeBitmap<T> {
         let node_bytes = self.trienodes.mem_usage();
         let result_bytes = self.results.mem_usage();
         (node_bytes, result_bytes)
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn exact_match(&self, nibbles: &[u8], masklen: u32) -> Option<&T> {
@@ -298,6 +305,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
                         self.results.free(&mut result_hdl);
                     }
                     node.result_ptr = result_hdl.offset;
+                    self.len -= 1;
                     return Some(ret);
                 }
                 _ => return None,
@@ -523,6 +531,31 @@ impl<T> Drop for TreeBitmap<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn len() {
+        let mut tbm: TreeBitmap<&str> = TreeBitmap::new();
+        assert_eq!(tbm.len(), 0);
+
+        let (nibbles_a, mask_a) = (&[0, 10, 0, 0, 0, 0, 0, 0], 8);
+        let (nibbles_b, mask_b) = (&[0, 10, 0, 10, 0, 10, 0, 0], 24);
+
+        tbm.insert(nibbles_a, mask_a, "foo");
+        assert_eq!(tbm.len(), 1);
+
+        // Insert same nibbles again
+        tbm.insert(nibbles_a, mask_a, "foo2");
+        assert_eq!(tbm.len(), 1);
+
+        tbm.insert(nibbles_b, mask_b, "bar");
+        assert_eq!(tbm.len(), 2);
+
+        tbm.remove(nibbles_b, mask_b);
+        assert_eq!(tbm.len(), 1);
+
+        tbm.remove(nibbles_a, mask_a);
+        assert_eq!(tbm.len(), 0);
+    }
 
     #[test]
     fn remove() {
