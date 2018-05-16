@@ -170,6 +170,11 @@ impl<A, T> IpLookupTable<A, T> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    /// Return `true` if no item is inside table.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Iterator over prefixes and associated values. The prefixes are returned in
