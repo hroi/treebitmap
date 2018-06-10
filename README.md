@@ -8,7 +8,7 @@ W. Eatherton, Z. Dittia, G. Varghes.
 
 ## Documentation
 
-Rustdoc: https://hroi.github.io/treebitmap/
+Rustdoc: https://docs.rs/treebitmap/
 
 ## Illustration
 An example illustration of a trie representing a routing table containing
