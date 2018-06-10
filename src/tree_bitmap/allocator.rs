@@ -131,7 +131,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     #[inline]
-    pub fn get_slot_entry_mut(&self, slot: u32, index: u32) -> &mut T {
+    pub fn get_slot_entry_mut(&mut self, slot: u32, index: u32) -> &mut T {
         let offset = slot + index;
         unsafe {
             let src_ptr = self.buf.ptr().offset(offset as isize);
@@ -355,10 +355,10 @@ impl<T: Sized> Allocator<T> {
     }
 
     #[inline]
-    pub fn get_mut(&self, hdl: &AllocatorHandle, index: u32) -> &mut T {
+    pub fn get_mut(&mut self, hdl: &AllocatorHandle, index: u32) -> &mut T {
         let bucket_index = choose_bucket(hdl.len) as usize;
         // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe { (*self.buckets.get_unchecked(bucket_index)).get_slot_entry_mut(hdl.offset, index) }
+        unsafe { (*self.buckets.get_unchecked_mut(bucket_index)).get_slot_entry_mut(hdl.offset, index) }
     }
 
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {

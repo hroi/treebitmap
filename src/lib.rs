@@ -190,7 +190,7 @@ impl<A, T> IpLookupTable<A, T>
     }
 
     /// Mutable version of iter()
-    pub fn iter_mut(&self) -> IterMut<A,T> {
+    pub fn iter_mut(&mut self) -> IterMut<A,T> {
         IterMut {
             inner: self.inner.iter_mut(),
             _addrtype: PhantomData,

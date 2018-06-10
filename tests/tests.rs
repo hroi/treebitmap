@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 #[test]
 fn remove() {
-    let mut tbl = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbl = IpLookupTable::new();
     tbl.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 1);
     tbl.insert(Ipv4Addr::new(10, 0, 10, 0), 24, 2);
     let value = tbl.remove(Ipv4Addr::new(10, 0, 10, 0), 24);
@@ -25,21 +25,21 @@ fn remove() {
 
 #[test]
 fn insert() {
-    let mut tbm = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbm = IpLookupTable::new();
     tbm.insert(Ipv4Addr::new(0, 0, 0, 0), 0, 1);
     tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 1);
 }
 
 #[test]
 fn insert_dup() {
-    let mut tbm = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbm = IpLookupTable::new();
     assert_eq!(tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 1), None);
     assert_eq!(tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 2), Some(1));
 }
 
 #[test]
 fn longest_match6() {
-    let mut tbm = IpLookupTable::<Ipv6Addr, u32>::new();
+    let mut tbm = IpLookupTable::new();
     let google = Ipv6Addr::from_str("2a00:1450::0").unwrap();
     let ip = Ipv6Addr::from_str("2a00:1450:400f:804::2004").unwrap();
     let ip2 = Ipv6Addr::from_str("2000:1000::f00").unwrap();
@@ -53,7 +53,7 @@ fn longest_match6() {
 
 #[test]
 fn longest_match() {
-    let mut tbm = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbm = IpLookupTable::new();
     tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 100002);
     tbm.insert(Ipv4Addr::new(100, 64, 0, 0), 24, 10064024);
     tbm.insert(Ipv4Addr::new(100, 64, 1, 0), 24, 10064124);
@@ -74,7 +74,7 @@ fn longest_match() {
 
 #[test]
 fn iter() {
-    let mut tbl = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbl = IpLookupTable::new();
 
     let (ip_a, mask_a, value_a) = (Ipv4Addr::new(10, 0, 0, 0), 8, 1);
     let (ip_b, mask_b, value_b) = (Ipv4Addr::new(100, 64, 0, 0), 24, 2);
@@ -92,26 +92,29 @@ fn iter() {
 
 #[test]
 fn iter_mut() {
-    let mut tbl = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbl = IpLookupTable::new();
 
-    let (ip_a, mask_a, mut value_a) = (Ipv4Addr::new(10, 0, 0, 0), 8, 1);
-    let (ip_b, mask_b, mut value_b) = (Ipv4Addr::new(100, 64, 0, 0), 24, 2);
-    let (ip_c, mask_c, mut value_c) = (Ipv4Addr::new(100, 64, 1, 0), 24, 3);
+    let (ip_a, mask_a, value_a) = (Ipv4Addr::new(10, 0, 0, 0), 8, 1);
+    let (ip_b, mask_b, value_b) = (Ipv4Addr::new(100, 64, 0, 0), 24, 2);
+    let (ip_c, mask_c, value_c) = (Ipv4Addr::new(100, 64, 1, 0), 24, 3);
     tbl.insert(ip_a, mask_a, value_a);
     tbl.insert(ip_b, mask_b, value_b);
     tbl.insert(ip_c, mask_c, value_c);
 
-    let mut iter = tbl.iter_mut();
+    for (_ip, _mask, val) in tbl.iter_mut() {
+        *val += 10;
+    }
+    let mut iter = tbl.iter();
 
-    assert_eq!(iter.next(), Some((ip_a, mask_a, &mut value_a)));
-    assert_eq!(iter.next(), Some((ip_b, mask_b, &mut value_b)));
-    assert_eq!(iter.next(), Some((ip_c, mask_c, &mut value_c)));
+    assert_eq!(iter.next(), Some((ip_a, mask_a, &11)));
+    assert_eq!(iter.next(), Some((ip_b, mask_b, &12)));
+    assert_eq!(iter.next(), Some((ip_c, mask_c, &13)));
     assert_eq!(iter.next(), None);
 }
 
 #[test]
 fn into_iter() {
-    let mut tbl = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbl = IpLookupTable::new();
 
     let (ip_a, mask_a, value_a) = (Ipv4Addr::new(10, 0, 0, 0), 8, 1);
     let (ip_b, mask_b, value_b) = (Ipv4Addr::new(100, 64, 0, 0), 24, 2);
@@ -132,7 +135,7 @@ fn send() {
     use std::sync::Arc;
     use std::thread;
 
-    let mut tbl = IpLookupTable::<Ipv4Addr, u32>::new();
+    let mut tbl = IpLookupTable::new();
     let (ip, mask, value) = (Ipv4Addr::new(10, 0, 0, 0), 8, 1);
     tbl.insert(ip, mask, value);
 

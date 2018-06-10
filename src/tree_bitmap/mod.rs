@@ -339,7 +339,7 @@ impl<T: Sized> TreeBitmap<T> {
         let root_hdl = self.root_handle();
         let root_node = *self.trienodes.get(&root_hdl, 0);
         Iter {
-            inner: &self,
+            inner: self,
             path: vec![
                 PathElem {
                     node: root_node,
@@ -350,11 +350,11 @@ impl<T: Sized> TreeBitmap<T> {
         }
     }
 
-    pub fn iter_mut(&self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<T> {
         let root_hdl = self.root_handle();
         let root_node = *self.trienodes.get(&root_hdl, 0);
         IterMut {
-            inner: &self,
+            inner: self,
             path: vec![
                 PathElem {
                     node: root_node,
@@ -379,7 +379,7 @@ pub struct Iter<'a, T: 'a> {
 }
 
 pub struct IterMut<'a, T: 'a> {
-    inner: &'a TreeBitmap<T>,
+    inner: &'a mut TreeBitmap<T>,
     path: Vec<PathElem>,
     nibbles: Vec<u8>,
 }
@@ -460,8 +460,11 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         match next(self.inner, &mut self.path, &mut self.nibbles) {
             Some((path, bits_matched, hdl, index)) => {
-                let mut value = self.inner.results.get_mut(&hdl, index);
-                Some((path, bits_matched, value))
+                unsafe {
+                    let ptr: *mut T = self.inner.results.get_mut(&hdl, index);
+                    let val_ref = &mut *ptr;
+                    Some((path, bits_matched, val_ref))
+                }
             }
             None => None,
         }
