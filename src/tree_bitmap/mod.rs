@@ -20,7 +20,7 @@ pub struct TreeBitmap<T: Sized> {
     should_drop: bool, // drop contents on drop?
 }
 
-impl<'a, T: Sized> TreeBitmap<T> {
+impl<T: Sized> TreeBitmap<T> {
     /// Returns ````TreeBitmap ```` with 0 start capacity.
     pub fn new() -> Self {
         Self::with_capacity(0)
