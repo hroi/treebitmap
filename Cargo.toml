@@ -1,6 +1,6 @@
 [package]
 name = "treebitmap"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Hroi Sigurdsson <hroi@asdf.dk>", "Jakub Onderka <ahoj@jakubonderka.cz>"]
 description = "Fast IPv4/IPv6 lookup trie."
 license = "MIT"

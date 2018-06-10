@@ -8,8 +8,8 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::cmp::min;
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
-pub trait Address {
-    type Nibbles;
+pub trait Address: Copy {
+    type Nibbles: AsRef<[u8]>;
     /// Convert to string of nibbles.
     fn nibbles(self) -> Self::Nibbles;
     /// Convert from string of nibbles.
