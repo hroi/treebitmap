@@ -8,7 +8,7 @@ use std::cmp;
 mod node;
 mod allocator;
 
-use self::node::{Node, MatchResult};
+use self::node::{MatchResult, Node};
 use self::allocator::{Allocator, AllocatorHandle};
 use std::ptr;
 
@@ -16,6 +16,7 @@ use std::ptr;
 pub struct TreeBitmap<T: Sized> {
     trienodes: Allocator<Node>,
     results: Allocator<T>,
+    len: usize,
     should_drop: bool, // drop contents on drop?
 }
 
@@ -34,6 +35,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
         TreeBitmap {
             trienodes: trieallocator,
             results: Allocator::with_capacity(n),
+            len: 0,
             should_drop: true,
         }
     }
@@ -57,11 +59,11 @@ impl<'a, T: Sized> TreeBitmap<T> {
         debug_assert!(node.child_ptr == 0);
         // count number of internal nodes in the first 15 bits (those that will
         // remain in place).
-        let internal_node_count = (node.internal() & 0xffff0000).count_ones();
+        let internal_node_count = (node.internal() & 0xffff_0000).count_ones();
         let remove_at = internal_node_count;
         // count how many nodes to push down
-        // let nodes_to_pushdown = (node.bitmap & 0x0000ffff).count_ones();
-        let nodes_to_pushdown = (node.internal() & 0x0000ffff).count_ones();
+        // let nodes_to_pushdown = (node.bitmap & 0x0000_ffff).count_ones();
+        let nodes_to_pushdown = (node.internal() & 0x0000_ffff).count_ones();
         if nodes_to_pushdown > 0 {
             let mut result_hdl = node.result_handle();
             let mut child_node_hdl = self.trienodes.alloc(0);
@@ -78,7 +80,8 @@ impl<'a, T: Sized> TreeBitmap<T> {
                 child_node.result_ptr = child_result_hdl.offset;
                 // append trienode to collection
                 let insert_node_at = child_node_hdl.len;
-                self.trienodes.insert(&mut child_node_hdl, insert_node_at, child_node);
+                self.trienodes
+                    .insert(&mut child_node_hdl, insert_node_at, child_node);
             }
             // the result data may have moved to a smaller bucket, update the
             // result pointer
@@ -107,7 +110,8 @@ impl<'a, T: Sized> TreeBitmap<T> {
             let match_mask = unsafe { *node::MATCH_MASKS.get_unchecked(*nibble as usize) };
 
             if let MatchResult::Match(result_hdl, result_index, matching_bit_index) =
-                   cur_node.match_internal(match_mask) {
+                cur_node.match_internal(match_mask)
+            {
                 bits_matched = bits_searched;
                 unsafe {
                     bits_matched += *node::BIT_MATCH.get_unchecked(matching_bit_index as usize);
@@ -139,7 +143,6 @@ impl<'a, T: Sized> TreeBitmap<T> {
             None => None,
         }
     }
-
 
     pub fn insert(&mut self, nibbles: &[u8], masklen: u32, value: T) -> Option<T> {
         let mut cur_hdl = self.root_handle();
@@ -178,9 +181,9 @@ impl<'a, T: Sized> TreeBitmap<T> {
                     0 => self.results.alloc(0),
                     _ => cur_node.result_handle(),
                 };
-                let result_index = (cur_node.internal() >>
-                                    (bitmap & node::END_BIT_MASK).trailing_zeros())
-                                       .count_ones();
+                let result_index = (cur_node.internal()
+                    >> (bitmap & node::END_BIT_MASK).trailing_zeros())
+                    .count_ones();
 
                 if cur_node.internal() & (bitmap & node::END_BIT_MASK) > 0 {
                     // key already exists!
@@ -188,6 +191,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
                 } else {
                     cur_node.set_internal(bitmap & node::END_BIT_MASK);
                     self.results.insert(&mut result_hdl, result_index, value); // add result
+                    self.len += 1;
                 }
                 cur_node.result_ptr = result_hdl.offset;
                 self.trienodes.set(&cur_hdl, cur_index, cur_node); // save trie node
@@ -224,7 +228,8 @@ impl<'a, T: Sized> TreeBitmap<T> {
             // prepare a child node
             let mut child_node = Node::new();
             child_node.make_endnode();
-            self.trienodes.insert(&mut child_hdl, child_index, child_node); // save child
+            self.trienodes
+                .insert(&mut child_hdl, child_index, child_node); // save child
             cur_node.child_ptr = child_hdl.offset;
             self.trienodes.set(&cur_hdl, cur_index, cur_node); // save trie node
 
@@ -238,6 +243,10 @@ impl<'a, T: Sized> TreeBitmap<T> {
         let node_bytes = self.trienodes.mem_usage();
         let result_bytes = self.results.mem_usage();
         (node_bytes, result_bytes)
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn exact_match(&self, nibbles: &[u8], masklen: u32) -> Option<&T> {
@@ -296,6 +305,7 @@ impl<'a, T: Sized> TreeBitmap<T> {
                         self.results.free(&mut result_hdl);
                     }
                     node.result_ptr = result_hdl.offset;
+                    self.len -= 1;
                     return Some(ret);
                 }
                 _ => return None,
@@ -330,10 +340,12 @@ impl<'a, T: Sized> TreeBitmap<T> {
         let root_node = *self.trienodes.get(&root_hdl, 0);
         Iter {
             inner: &self,
-            path: vec![PathElem {
-                           node: root_node,
-                           pos: 0,
-                       }],
+            path: vec![
+                PathElem {
+                    node: root_node,
+                    pos: 0,
+                },
+            ],
             nibbles: vec![0],
         }
     }
@@ -343,10 +355,12 @@ impl<'a, T: Sized> TreeBitmap<T> {
         let root_node = *self.trienodes.get(&root_hdl, 0);
         IterMut {
             inner: &self,
-            path: vec![PathElem {
-                           node: root_node,
-                           pos: 0,
-                       }],
+            path: vec![
+                PathElem {
+                    node: root_node,
+                    pos: 0,
+                },
+            ],
             nibbles: vec![0],
         }
     }
@@ -380,10 +394,11 @@ static PREFIX_OF_BIT: [u8; 32] = [// 0       1       2      3        4       5  
                                   // 24      25      26      27      28      29      30      31
                                   0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111];
 
-fn next<T: Sized>(trie: &TreeBitmap<T>,
-                  path: &mut Vec<PathElem>,
-                  nibbles: &mut Vec<u8>)
-                  -> Option<(Vec<u8>, u32, AllocatorHandle, u32)> {
+fn next<T: Sized>(
+    trie: &TreeBitmap<T>,
+    path: &mut Vec<PathElem>,
+    nibbles: &mut Vec<u8>,
+) -> Option<(Vec<u8>, u32, AllocatorHandle, u32)> {
     loop {
         let mut path_elem = match path.pop() {
             Some(elem) => elem,
@@ -410,19 +425,17 @@ fn next<T: Sized>(trie: &TreeBitmap<T>,
         if cur_pos < 16 || cur_node.is_endnode() {
             let match_result = cur_node.match_internal(bitmap);
             if let MatchResult::Match(result_hdl, result_index, matching_bit) = match_result {
-                let bits_matched = ((path.len() as u32) - 1) * 4 +
-                                   node::BIT_MATCH[matching_bit as usize];
+                let bits_matched =
+                    ((path.len() as u32) - 1) * 4 + node::BIT_MATCH[matching_bit as usize];
                 return Some((nibbles.clone(), bits_matched, result_hdl, result_index));
             }
-        } else {
-            if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
-                let child_node = trie.trienodes.get(&child_hdl, child_index);
-                nibbles.push(0);
-                path.push(PathElem {
-                    node: *child_node,
-                    pos: 0,
-                });
-            }
+        } else if let MatchResult::Chase(child_hdl, child_index) = cur_node.match_external(bitmap) {
+            let child_node = trie.trienodes.get(&child_hdl, child_index);
+            nibbles.push(0);
+            path.push(PathElem {
+                node: *child_node,
+                pos: 0,
+            });
         }
     }
 }
@@ -486,10 +499,12 @@ impl<T> IntoIterator for TreeBitmap<T> {
         self.should_drop = false; // IntoIter will drop contents
         IntoIter {
             inner: self,
-            path: vec![PathElem {
-                           node: root_node,
-                           pos: 0,
-                       }],
+            path: vec![
+                PathElem {
+                    node: root_node,
+                    pos: 0,
+                },
+            ],
             nibbles: vec![0],
         }
     }
@@ -516,6 +531,31 @@ impl<T> Drop for TreeBitmap<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn len() {
+        let mut tbm: TreeBitmap<&str> = TreeBitmap::new();
+        assert_eq!(tbm.len(), 0);
+
+        let (nibbles_a, mask_a) = (&[0, 10, 0, 0, 0, 0, 0, 0], 8);
+        let (nibbles_b, mask_b) = (&[0, 10, 0, 10, 0, 10, 0, 0], 24);
+
+        tbm.insert(nibbles_a, mask_a, "foo");
+        assert_eq!(tbm.len(), 1);
+
+        // Insert same nibbles again
+        tbm.insert(nibbles_a, mask_a, "foo2");
+        assert_eq!(tbm.len(), 1);
+
+        tbm.insert(nibbles_b, mask_b, "bar");
+        assert_eq!(tbm.len(), 2);
+
+        tbm.remove(nibbles_b, mask_b);
+        assert_eq!(tbm.len(), 1);
+
+        tbm.remove(nibbles_a, mask_a);
+        assert_eq!(tbm.len(), 0);
+    }
 
     #[test]
     fn remove() {

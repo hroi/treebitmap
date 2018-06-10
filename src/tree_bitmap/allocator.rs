@@ -19,10 +19,7 @@ impl<T> RawVec<T> {
         let mut vec = Vec::<T>::with_capacity(cap);
         let ptr = vec.as_mut_ptr();
         mem::forget(vec);
-        RawVec {
-            mem: ptr,
-            cap: cap,
-        }
+        RawVec { mem: ptr, cap }
     }
 
     pub fn cap(&self) -> usize {
@@ -50,7 +47,17 @@ impl<T> Drop for RawVec<T> {
     }
 }
 
-unsafe impl<T> Sync for RawVec<T> where T: Sync {}
+unsafe impl<T> Sync for RawVec<T>
+where
+    T: Sync,
+{
+}
+
+unsafe impl<T> Send for RawVec<T>
+where
+    T: Send,
+{
+}
 
 pub struct BucketVec<T> {
     buf: RawVec<T>,
@@ -61,15 +68,15 @@ pub struct BucketVec<T> {
 
 impl<T: fmt::Debug> fmt::Debug for BucketVec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         f.debug_struct("BucketVec")
-         .field("spacing", &self.spacing)
-         .field("freelist", &self.freelist)
-         .field("len", &self.len)
-         .field("cap", &self.buf.cap())
-         .field("buf",
-                unsafe { &slice::from_raw_parts(self.buf.ptr(), self.len as usize) })
-         .finish()
+            .field("spacing", &self.spacing)
+            .field("freelist", &self.freelist)
+            .field("len", &self.len)
+            .field("cap", &self.buf.cap())
+            .field("buf", unsafe {
+                &slice::from_raw_parts(self.buf.ptr(), self.len as usize)
+            })
+            .finish()
     }
 }
 
@@ -79,7 +86,7 @@ impl<T: Sized> BucketVec<T> {
             buf: RawVec::with_capacity(capacity),
             freelist: Vec::with_capacity(32),
             len: 0,
-            spacing: spacing,
+            spacing,
         }
     }
 
@@ -95,9 +102,11 @@ impl<T: Sized> BucketVec<T> {
                 self.buf.reserve(self.len as usize, self.spacing as usize);
                 if cfg!(debug_assertions) {
                     unsafe {
-                        ptr::write_bytes(self.buf.ptr().offset(self.len as isize),
-                                         0,
-                                         self.spacing as usize);
+                        ptr::write_bytes(
+                            self.buf.ptr().offset(self.len as isize),
+                            0,
+                            self.spacing as usize,
+                        );
                     }
                 }
                 let slot = self.len;
@@ -155,9 +164,11 @@ impl<T: Sized> BucketVec<T> {
         let offset = slot + index;
         unsafe {
             let dst_ptr = self.buf.ptr().offset(offset as isize);
-            ptr::copy(dst_ptr,
-                      dst_ptr.offset(1),
-                      (self.spacing - index - 1) as usize);
+            ptr::copy(
+                dst_ptr,
+                dst_ptr.offset(1),
+                (self.spacing - index - 1) as usize,
+            );
             ptr::write(dst_ptr, value);
         }
     }
@@ -169,12 +180,16 @@ impl<T: Sized> BucketVec<T> {
         unsafe {
             ret = ptr::read(self.buf.ptr().offset(offset as isize));
             let dst_ptr = self.buf.ptr().offset(offset as isize);
-            ptr::copy(dst_ptr.offset(1),
-                      dst_ptr,
-                      (self.spacing - index - 1) as usize);
+            ptr::copy(
+                dst_ptr.offset(1),
+                dst_ptr,
+                (self.spacing - index - 1) as usize,
+            );
             if cfg!(debug_assertions) {
-                ptr::write(dst_ptr.offset((self.spacing - index - 1) as isize),
-                           mem::zeroed());
+                ptr::write(
+                    dst_ptr.offset((self.spacing - index - 1) as isize),
+                    mem::zeroed(),
+                );
             }
         }
         ret
@@ -213,9 +228,10 @@ impl<T: Sized> BucketVec<T> {
     }
 }
 
-static LEN2BUCKET: [u32; 33] = [0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7,
-                                7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8];
-
+static LEN2BUCKET: [u32; 33] = [
+    0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8,
+    8,
+];
 
 #[inline]
 pub fn choose_bucket(len: u32) -> u32 {
@@ -249,10 +265,7 @@ pub struct AllocatorHandle {
 impl AllocatorHandle {
     #[inline]
     pub fn generate(len: u32, offset: u32) -> AllocatorHandle {
-        AllocatorHandle {
-            len: len,
-            offset: offset,
-        }
+        AllocatorHandle { len, offset }
     }
 }
 
@@ -261,30 +274,34 @@ impl<T: Sized> Allocator<T> {
     #[allow(dead_code)]
     pub fn new() -> Allocator<T> {
         Allocator {
-            buckets: [BucketVec::new(1),
-                      BucketVec::new(2),
-                      BucketVec::new(4),
-                      BucketVec::new(6),
-                      BucketVec::new(8),
-                      BucketVec::new(12),
-                      BucketVec::new(16),
-                      BucketVec::new(24),
-                      BucketVec::new(32)],
+            buckets: [
+                BucketVec::new(1),
+                BucketVec::new(2),
+                BucketVec::new(4),
+                BucketVec::new(6),
+                BucketVec::new(8),
+                BucketVec::new(12),
+                BucketVec::new(16),
+                BucketVec::new(24),
+                BucketVec::new(32),
+            ],
         }
     }
 
     /// Initialize a new ```Allocator``` with specified capacity.
     pub fn with_capacity(cap: usize) -> Allocator<T> {
         Allocator {
-            buckets: [BucketVec::with_capacity(1, cap),
-                      BucketVec::with_capacity(2, cap),
-                      BucketVec::with_capacity(4, cap),
-                      BucketVec::with_capacity(6, cap),
-                      BucketVec::with_capacity(8, cap),
-                      BucketVec::with_capacity(12, cap),
-                      BucketVec::with_capacity(16, cap),
-                      BucketVec::with_capacity(24, cap),
-                      BucketVec::with_capacity(32, cap)],
+            buckets: [
+                BucketVec::with_capacity(1, cap),
+                BucketVec::with_capacity(2, cap),
+                BucketVec::with_capacity(4, cap),
+                BucketVec::with_capacity(6, cap),
+                BucketVec::with_capacity(8, cap),
+                BucketVec::with_capacity(12, cap),
+                BucketVec::with_capacity(16, cap),
+                BucketVec::with_capacity(24, cap),
+                BucketVec::with_capacity(32, cap),
+            ],
         }
     }
 
@@ -355,9 +372,8 @@ impl<T: Sized> Allocator<T> {
             // move to bigger bucket
             debug_assert!(next_bucket_index > 0);
             let ptr: *mut BucketVec<T> = &mut self.buckets[0];
-            let dst: &mut BucketVec<T> = unsafe {
-                mem::transmute(ptr.offset(next_bucket_index as isize))
-            };
+            let dst: &mut BucketVec<T> =
+                unsafe { &mut *ptr.offset(next_bucket_index as isize) };
             slot = self.buckets[bucket_index].move_slot(slot, dst);
             bucket_index = next_bucket_index;
         }
@@ -379,9 +395,8 @@ impl<T: Sized> Allocator<T> {
             // move to smaller bucket
             debug_assert!(next_bucket_index < self.buckets.len());
             let buckets_base_ptr: *mut BucketVec<T> = &mut self.buckets[0];
-            let dst: &mut BucketVec<T> = unsafe {
-                mem::transmute(buckets_base_ptr.offset(next_bucket_index as isize))
-            };
+            let dst: &mut BucketVec<T> =
+                unsafe { &mut *buckets_base_ptr.offset(next_bucket_index as isize) };
             slot = self.buckets[bucket_index].move_slot(slot, dst);
         }
 

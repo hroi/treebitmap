@@ -136,10 +136,13 @@ mod tests {
     #[test]
     fn address_ipv6_nibbles() {
         let ip = Ipv6Addr::from_str("2001:db8:aaaa:bbbb:cccc:dddd:eeee:ffff").unwrap();
-        assert_eq!(ip.nibbles(),
-                   [0x2, 0x0, 0x0, 0x1, 0x0, 0xd, 0xb, 0x8, 0xa, 0xa, 0xa, 0xa, 0xb, 0xb, 0xb,
-                    0xb, 0xc, 0xc, 0xc, 0xc, 0xd, 0xd, 0xd, 0xd, 0xe, 0xe, 0xe, 0xe, 0xf, 0xf,
-                    0xf, 0xf]);
+        assert_eq!(
+            ip.nibbles(),
+            [
+                0x2, 0x0, 0x0, 0x1, 0x0, 0xd, 0xb, 0x8, 0xa, 0xa, 0xa, 0xa, 0xb, 0xb, 0xb, 0xb,
+                0xc, 0xc, 0xc, 0xc, 0xd, 0xd, 0xd, 0xd, 0xe, 0xe, 0xe, 0xe, 0xf, 0xf, 0xf, 0xf,
+            ]
+        );
     }
 
     #[test]
@@ -150,17 +153,20 @@ mod tests {
 
     #[test]
     fn address_ipv6_from_nibbles() {
-        let ip: Ipv6Addr = Address::from_nibbles(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-                                                   14, 15, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,
-                                                   4, 3, 2, 1, 0]);
-        let expected = Ipv6Addr::new(0x123,
-                                     0x4567,
-                                     0x89ab,
-                                     0xcdef,
-                                     0xfedc,
-                                     0xba98,
-                                     0x7654,
-                                     0x3210);
+        let ip: Ipv6Addr = Address::from_nibbles(&[
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 15, 14, 13, 12, 11, 10, 9, 8, 7,
+            6, 5, 4, 3, 2, 1, 0,
+        ]);
+        let expected = Ipv6Addr::new(
+            0x123,
+            0x4567,
+            0x89ab,
+            0xcdef,
+            0xfedc,
+            0xba98,
+            0x7654,
+            0x3210,
+        );
         assert_eq!(ip, expected);
     }
 

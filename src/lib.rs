@@ -25,11 +25,13 @@ use tree_bitmap::TreeBitmap;
 mod address;
 use address::Address;
 
-///The operations defined on the lookup table.
+/// The operations defined on the lookup table.
 pub trait IpLookupTableOps<Addr, T> {
     /// Insert a value for the prefix designated by ip and masklen. If prefix
     /// existed previously, the old value is returned.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -46,7 +48,9 @@ pub trait IpLookupTableOps<Addr, T> {
 
     /// Remove an entry from the lookup table. If the prefix existed previously,
     /// the value is returned.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -62,9 +66,11 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn remove(&mut self, ip: Addr, masklen: u32) -> Option<T>;
 
-    /// Perform exact match lookup of ```ip```/```masklen``` and return the
+    /// Perform exact match lookup of `ip`/`masklen` and return the
     /// value.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -80,9 +86,11 @@ pub trait IpLookupTableOps<Addr, T> {
     /// ```
     fn exact_match(&self, ip: Addr, masklen: u32) -> Option<&T>;
 
-    /// Perform longest match lookup of ```ip``` and return the best matching
+    /// Perform longest match lookup of `ip` and return the best matching
     /// prefix, designated by ip, masklen, along with its value.
+    ///
     /// # Example
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -106,7 +114,9 @@ pub trait IpLookupTableOps<Addr, T> {
     fn longest_match(&self, ip: Addr) -> Option<(Addr, u32, &T)>;
 
     /// Returns iterator over prefixes and values.
-    /// # Example
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use treebitmap::{IpLookupTable, IpLookupTableOps};
     /// use std::net::Ipv6Addr;
@@ -155,6 +165,16 @@ impl<A, T> IpLookupTable<A, T> {
     pub fn mem_usage(&self) -> (usize, usize) {
         self.inner.mem_usage()
     }
+
+    /// Return number of items inside table.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Return `true` if no item is inside table.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Iterator over prefixes and associated values. The prefixes are returned in
@@ -182,11 +202,11 @@ macro_rules! impl_ops {
     ($addr_type:ty) => {
         impl<T: Sized> IpLookupTableOps<$addr_type, T> for IpLookupTable<$addr_type, T> {
 
-            fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T>{
+            fn insert(&mut self, ip: $addr_type, masklen: u32, value: T) -> Option<T> {
                 self.inner.insert(&ip.nibbles(), masklen, value)
             }
 
-            fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T>{
+            fn remove(&mut self, ip: $addr_type, masklen: u32) -> Option<T> {
                 self.inner.remove(&ip.nibbles(), masklen)
             }
 
@@ -196,21 +216,21 @@ macro_rules! impl_ops {
 
             fn longest_match(&self, ip: $addr_type) -> Option<($addr_type, u32, &T)> {
                 match self.inner.longest_match(&ip.nibbles()) {
-                    Some((bits_matched,value)) => Some((ip.mask(bits_matched),
+                    Some((bits_matched, value)) => Some((ip.mask(bits_matched),
                                                         bits_matched, value)),
                     None => None
                 }
             }
 
             fn iter(&self) -> Iter<$addr_type,T> {
-                Iter{
+                Iter {
                     inner: self.inner.iter(),
                     _addrtype: PhantomData,
                 }
             }
 
             fn iter_mut(&self) -> IterMut<$addr_type,T> {
-                IterMut{
+                IterMut {
                     inner: self.inner.iter_mut(),
                     _addrtype: PhantomData,
                 }
@@ -272,7 +292,6 @@ macro_rules! impl_ops {
 
 impl_ops!(Ipv4Addr);
 impl_ops!(Ipv6Addr);
-
 
 #[cfg(test)]
 mod tests;

@@ -13,7 +13,7 @@ extern crate rand;
 use self::rand::Rng;
 
 use super::*;
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::io::prelude::*;
@@ -28,7 +28,6 @@ lazy_static! {
     static ref FULL_BGP6_TABLE_UNIT: IpLookupTable<Ipv6Addr,()> =
         load_bgp6_dump_light(0).unwrap();
 }
-
 
 /// We store the the prefix in the value, so we can later compare it and check
 /// that it is the correct value for the key.
@@ -124,9 +123,10 @@ fn loadv4() {
     let tbl = load_bgp_dump_light(0).unwrap();
 
     let (node_bytes, result_bytes) = tbl.mem_usage();
-    println!("load_bgp_dump_light: nodes: {} bytes, results: {} bytes",
-             node_bytes,
-             result_bytes);
+    println!(
+        "load_bgp_dump_light: nodes: {} bytes, results: {} bytes",
+        node_bytes, result_bytes
+    );
 
     let google_dns = Ipv4Addr::new(8, 8, 8, 8);
     let (prefix, mask, _) = tbl.longest_match(google_dns).unwrap();
@@ -185,7 +185,6 @@ fn longest_match6_comcast(b: &mut Bencher) {
         black_box(FULL_BGP6_TABLE_UNIT.longest_match(ip));
     })
 }
-
 
 #[bench]
 fn longest_match4_netgroup(b: &mut Bencher) {
@@ -246,7 +245,6 @@ fn longest_match4_random_every(b: &mut Bencher) {
         black_box(FULL_BGP_TABLE_UNIT.longest_match(ip));
     });
 }
-
 
 #[bench]
 fn exact_match4_googledns(b: &mut Bencher) {
