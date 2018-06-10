@@ -1,14 +1,14 @@
 [package]
 name = "treebitmap"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Hroi Sigurdsson <hroi@asdf.dk>", "Jakub Onderka <ahoj@jakubonderka.cz>"]
 description = "Fast IPv4/IPv6 lookup trie."
 license = "MIT"
-repository = "https://github.com/JakubOnderka/treebitmap"
-#documentation = "https://docs.rs/treebitmap/"
+repository = "https://github.com/hroi/treebitmap"
+documentation = "https://docs.rs/treebitmap/"
 readme = "README.md"
 keywords = ["ip", "networking", "trie", "cidr"]
 exclude = ["tests/*", "benches/*"]
 
 [badges]
-travis-ci = { repository = "JakubOnderka/treebitmap" }
+travis-ci = { repository = "hroi/treebitmap" }

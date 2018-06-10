@@ -2,8 +2,11 @@
 //
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
+//
 
-use super::*;
+extern crate treebitmap;
+
+use treebitmap::*;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
