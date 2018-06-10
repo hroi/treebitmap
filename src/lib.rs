@@ -189,7 +189,32 @@ impl<A, T> IpLookupTable<A, T>
         }
     }
 
-    /// Mutable version of iter()
+    /// Mutable version of iter().
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use treebitmap::IpLookupTable;
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let x: Ipv6Addr = "2001:db8:100::".parse().unwrap();
+    /// let y: Ipv6Addr = "2001:db8:100::".parse().unwrap();
+    /// let z: Ipv6Addr = "2001:db8:102::".parse().unwrap();
+    /// let mut table = IpLookupTable::new();
+    ///
+    /// table.insert(x, 48, 1);
+    /// table.insert(y, 56, 2);
+    /// table.insert(z, 56, 3);
+    ///
+    /// for (_ip, _mask, val) in table.iter_mut() {
+    ///     *val += 10;
+    /// }
+    ///
+    /// assert_eq!(table.exact_match(x, 48), Some(&11));
+    /// assert_eq!(table.exact_match(y, 56), Some(&12));
+    /// assert_eq!(table.exact_match(z, 56), Some(&13));
+    /// ```
+
     pub fn iter_mut(&mut self) -> IterMut<A,T> {
         IterMut {
             inner: self.inner.iter_mut(),
