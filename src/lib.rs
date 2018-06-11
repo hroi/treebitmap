@@ -223,6 +223,15 @@ impl<A, T> IpLookupTable<A, T>
     }
 }
 
+impl<A, T> Default for IpLookupTable<A, T>
+where
+    A: Address,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a, A, T: 'a> Iterator for Iter<'a, A, T>
     where A: Address
 {
