@@ -6,9 +6,9 @@
 
 extern crate treebitmap;
 
-use treebitmap::*;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
+use treebitmap::*;
 
 #[test]
 fn remove() {

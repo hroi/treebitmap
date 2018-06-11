@@ -112,7 +112,7 @@ pub struct Node {
 }
 
 pub const BIT_MATCH: [u32; 32] = [
-    0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+    0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 0, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 ];
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -150,7 +150,8 @@ impl fmt::Debug for Node {
         let bitmap_string = format!("{:016b} {:016b}", self.bitmap >> 16, self.bitmap & EXT_MASK);
 
         if self.is_endnode() {
-            return f.debug_struct("EndNode")
+            return f
+                .debug_struct("EndNode")
                 .field("bitmap", &bitmap_string)
                 .field("internal", &int_nodes)
                 .field("result_ptr", &self.result_ptr)

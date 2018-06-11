@@ -3,9 +3,9 @@
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
 
+use std::cmp::min;
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::cmp::min;
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address: Copy {
@@ -158,14 +158,7 @@ mod tests {
             6, 5, 4, 3, 2, 1, 0,
         ]);
         let expected = Ipv6Addr::new(
-            0x123,
-            0x4567,
-            0x89ab,
-            0xcdef,
-            0xfedc,
-            0xba98,
-            0x7654,
-            0x3210,
+            0x123, 0x4567, 0x89ab, 0xcdef, 0xfedc, 0xba98, 0x7654, 0x3210,
         );
         assert_eq!(ip, expected);
     }

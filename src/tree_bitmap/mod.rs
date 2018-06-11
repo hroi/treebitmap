@@ -5,11 +5,11 @@
 
 use std::cmp;
 
-mod node;
 mod allocator;
+mod node;
 
-use self::node::{MatchResult, Node};
 use self::allocator::{Allocator, AllocatorHandle};
+use self::node::{MatchResult, Node};
 use std::ptr;
 
 // #[derive(Debug)]
@@ -340,12 +340,10 @@ impl<T: Sized> TreeBitmap<T> {
         let root_node = *self.trienodes.get(&root_hdl, 0);
         Iter {
             inner: self,
-            path: vec![
-                PathElem {
-                    node: root_node,
-                    pos: 0,
-                },
-            ],
+            path: vec![PathElem {
+                node: root_node,
+                pos: 0,
+            }],
             nibbles: vec![0],
         }
     }
@@ -355,12 +353,10 @@ impl<T: Sized> TreeBitmap<T> {
         let root_node = *self.trienodes.get(&root_hdl, 0);
         IterMut {
             inner: self,
-            path: vec![
-                PathElem {
-                    node: root_node,
-                    pos: 0,
-                },
-            ],
+            path: vec![PathElem {
+                node: root_node,
+                pos: 0,
+            }],
             nibbles: vec![0],
         }
     }
@@ -459,13 +455,11 @@ impl<'a, T: 'a> Iterator for IterMut<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match next(self.inner, &mut self.path, &mut self.nibbles) {
-            Some((path, bits_matched, hdl, index)) => {
-                unsafe {
-                    let ptr: *mut T = self.inner.results.get_mut(&hdl, index);
-                    let val_ref = &mut *ptr;
-                    Some((path, bits_matched, val_ref))
-                }
-            }
+            Some((path, bits_matched, hdl, index)) => unsafe {
+                let ptr: *mut T = self.inner.results.get_mut(&hdl, index);
+                let val_ref = &mut *ptr;
+                Some((path, bits_matched, val_ref))
+            },
             None => None,
         }
     }
@@ -502,12 +496,10 @@ impl<T> IntoIterator for TreeBitmap<T> {
         self.should_drop = false; // IntoIter will drop contents
         IntoIter {
             inner: self,
-            path: vec![
-                PathElem {
-                    node: root_node,
-                    pos: 0,
-                },
-            ],
+            path: vec![PathElem {
+                node: root_node,
+                pos: 0,
+            }],
             nibbles: vec![0],
         }
     }

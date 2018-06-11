@@ -3,11 +3,11 @@
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
 
-use std::fmt;
-use std::ptr;
-use std::mem;
-use std::slice;
 use std::cmp;
+use std::fmt;
+use std::mem;
+use std::ptr;
+use std::slice;
 
 struct RawVec<T> {
     mem: *mut T,
@@ -47,17 +47,9 @@ impl<T> Drop for RawVec<T> {
     }
 }
 
-unsafe impl<T> Sync for RawVec<T>
-where
-    T: Sync,
-{
-}
+unsafe impl<T> Sync for RawVec<T> where T: Sync {}
 
-unsafe impl<T> Send for RawVec<T>
-where
-    T: Send,
-{
-}
+unsafe impl<T> Send for RawVec<T> where T: Send {}
 
 pub struct BucketVec<T> {
     buf: RawVec<T>,
@@ -358,7 +350,9 @@ impl<T: Sized> Allocator<T> {
     pub fn get_mut(&mut self, hdl: &AllocatorHandle, index: u32) -> &mut T {
         let bucket_index = choose_bucket(hdl.len) as usize;
         // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe { (*self.buckets.get_unchecked_mut(bucket_index)).get_slot_entry_mut(hdl.offset, index) }
+        unsafe {
+            (*self.buckets.get_unchecked_mut(bucket_index)).get_slot_entry_mut(hdl.offset, index)
+        }
     }
 
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {
@@ -372,8 +366,7 @@ impl<T: Sized> Allocator<T> {
             // move to bigger bucket
             debug_assert!(next_bucket_index > 0);
             let ptr: *mut BucketVec<T> = &mut self.buckets[0];
-            let dst: &mut BucketVec<T> =
-                unsafe { &mut *ptr.offset(next_bucket_index as isize) };
+            let dst: &mut BucketVec<T> = unsafe { &mut *ptr.offset(next_bucket_index as isize) };
             slot = self.buckets[bucket_index].move_slot(slot, dst);
             bucket_index = next_bucket_index;
         }

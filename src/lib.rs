@@ -24,7 +24,6 @@ use tree_bitmap::TreeBitmap;
 mod address;
 use address::Address;
 
-
 /// A fast, compressed IP lookup table.
 pub struct IpLookupTable<A, T> {
     inner: TreeBitmap<T>,
@@ -32,7 +31,8 @@ pub struct IpLookupTable<A, T> {
 }
 
 impl<A, T> IpLookupTable<A, T>
-    where A: Address
+where
+    A: Address,
 {
     /// Initialize an empty lookup table with no preallocation.
     pub fn new() -> Self {
@@ -157,9 +157,8 @@ impl<A, T> IpLookupTable<A, T>
     /// ```
     pub fn longest_match(&self, ip: A) -> Option<(A, u32, &T)> {
         match self.inner.longest_match(&ip.nibbles().as_ref()) {
-            Some((bits_matched, value)) => Some((ip.mask(bits_matched),
-                                                 bits_matched, value)),
-            None => None
+            Some((bits_matched, value)) => Some((ip.mask(bits_matched), bits_matched, value)),
+            None => None,
         }
     }
 
@@ -182,7 +181,7 @@ impl<A, T> IpLookupTable<A, T>
     /// assert_eq!(iter.next(), Some((more_specific, 48, &"bar")));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<A,T> {
+    pub fn iter(&self) -> Iter<A, T> {
         Iter {
             inner: self.inner.iter(),
             _addrtype: PhantomData,
@@ -215,7 +214,7 @@ impl<A, T> IpLookupTable<A, T>
     /// assert_eq!(table.exact_match(z, 56), Some(&13));
     /// ```
 
-    pub fn iter_mut(&mut self) -> IterMut<A,T> {
+    pub fn iter_mut(&mut self) -> IterMut<A, T> {
         IterMut {
             inner: self.inner.iter_mut(),
             _addrtype: PhantomData,
@@ -233,7 +232,8 @@ where
 }
 
 impl<'a, A, T: 'a> Iterator for Iter<'a, A, T>
-    where A: Address
+where
+    A: Address,
 {
     type Item = (A, u32, &'a T);
 
@@ -241,14 +241,15 @@ impl<'a, A, T: 'a> Iterator for Iter<'a, A, T>
         match self.inner.next() {
             Some((nibbles, masklen, value)) => {
                 Some((Address::from_nibbles(&nibbles[..]), masklen, value))
-            },
+            }
             None => None,
         }
     }
 }
 
 impl<'a, A, T: 'a> Iterator for IterMut<'a, A, T>
-    where A: Address
+where
+    A: Address,
 {
     type Item = (A, u32, &'a mut T);
 
@@ -256,14 +257,15 @@ impl<'a, A, T: 'a> Iterator for IterMut<'a, A, T>
         match self.inner.next() {
             Some((nibbles, masklen, value)) => {
                 Some((Address::from_nibbles(&nibbles[..]), masklen, value))
-            },
+            }
             None => None,
         }
     }
 }
 
 impl<'a, A, T: 'a> Iterator for IntoIter<A, T>
-    where A: Address
+where
+    A: Address,
 {
     type Item = (A, u32, T);
 
@@ -271,19 +273,20 @@ impl<'a, A, T: 'a> Iterator for IntoIter<A, T>
         match self.inner.next() {
             Some((nibbles, masklen, value)) => {
                 Some((Address::from_nibbles(&nibbles[..]), masklen, value))
-            },
+            }
             None => None,
         }
     }
 }
 
 impl<A, T> IntoIterator for IpLookupTable<A, T>
-    where A: Address
+where
+    A: Address,
 {
     type Item = (A, u32, T);
-    type IntoIter = IntoIter<A,T>;
+    type IntoIter = IntoIter<A, T>;
 
-    fn into_iter(self) -> IntoIter<A,T> {
+    fn into_iter(self) -> IntoIter<A, T> {
         IntoIter {
             inner: self.inner.into_iter(),
             _addrtype: PhantomData,
