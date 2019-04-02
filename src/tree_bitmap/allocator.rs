@@ -51,6 +51,9 @@ unsafe impl<T> Sync for RawVec<T> where T: Sync {}
 
 unsafe impl<T> Send for RawVec<T> where T: Send {}
 
+/// A vector that contains `len / spacing` buckets and each bucket contains `spacing` elements.
+/// Buckets are store contiguously in the vector.
+/// So slots are multiples of `spacing`.
 pub struct BucketVec<T> {
     buf: RawVec<T>,
     freelist: Vec<u32>,
@@ -87,6 +90,7 @@ impl<T: Sized> BucketVec<T> {
         Self::with_capacity(spacing, 0)
     }
 
+    /// Allocate a bucket slot.
     pub fn alloc_slot(&mut self) -> u32 {
         match self.freelist.pop() {
             Some(n) => n,
@@ -108,13 +112,14 @@ impl<T: Sized> BucketVec<T> {
         }
     }
 
-    /// Adds slot to the freelist.
+    /// Free a bucket slot.
     pub fn free_slot(&mut self, slot: u32) {
         self.freelist.push(slot)
     }
 
     #[inline]
     pub fn get_slot_entry(&self, slot: u32, index: u32) -> &T {
+        debug_assert!(slot % self.spacing == 0);
         let offset = slot + index;
         unsafe {
             let src_ptr = self.buf.ptr().offset(offset as isize);
@@ -124,6 +129,7 @@ impl<T: Sized> BucketVec<T> {
 
     #[inline]
     pub fn get_slot_entry_mut(&mut self, slot: u32, index: u32) -> &mut T {
+        debug_assert!(slot % self.spacing == 0);
         let offset = slot + index;
         unsafe {
             let src_ptr = self.buf.ptr().offset(offset as isize);
@@ -132,6 +138,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn set_slot_entry(&mut self, slot: u32, index: u32, value: T) {
+        debug_assert!(slot % self.spacing == 0);
         debug_assert!(index < self.spacing);
         let offset = slot + index;
         unsafe {
@@ -141,6 +148,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn replace_slot_entry(&mut self, slot: u32, index: u32, value: T) -> T {
+        debug_assert!(slot % self.spacing == 0);
         debug_assert!(index < self.spacing);
         let offset = slot + index;
         unsafe {
@@ -153,6 +161,7 @@ impl<T: Sized> BucketVec<T> {
     /// of ```index``` will be moved.
     /// If all values have been set the last value will be lost.
     pub fn insert_slot_entry(&mut self, slot: u32, index: u32, value: T) {
+        debug_assert!(slot % self.spacing == 0);
         let offset = slot + index;
         unsafe {
             let dst_ptr = self.buf.ptr().offset(offset as isize);
@@ -166,6 +175,7 @@ impl<T: Sized> BucketVec<T> {
     }
 
     pub fn remove_slot_entry(&mut self, slot: u32, index: u32) -> T {
+        debug_assert!(slot % self.spacing == 0);
         debug_assert!(index < self.spacing);
         let offset = slot + index;
         let ret: T;
@@ -187,15 +197,14 @@ impl<T: Sized> BucketVec<T> {
         ret
     }
 
-    /// move contents from one bucket to another. Returns the offset of the new
-    /// location.
+    /// Move contents from one bucket to another.
+    /// Returns the offset of the new location.
     fn move_slot(&mut self, slot: u32, dst: &mut BucketVec<T>) -> u32 {
         let nitems = cmp::min(self.spacing, dst.spacing);
 
-        // debug_assert!(self.spacing != dst.spacing);
-        debug_assert!(nitems > 0);
-        debug_assert!(nitems <= dst.spacing);
         debug_assert!(slot < self.len);
+        debug_assert!(slot % self.spacing == 0);
+        debug_assert!(nitems > 0);
         debug_assert!(nitems <= self.spacing);
         debug_assert!(nitems <= dst.spacing);
 
@@ -412,7 +421,20 @@ mod tests {
         for i in 0..spacing {
             a.set_slot_entry(slot_offset, i, 1000 + i);
         }
-        let _ = a.move_slot(0, &mut b);
+        let slot = a.move_slot(slot_offset, &mut b);
+        for i in 0..spacing {
+            assert_eq!(*b.get_slot_entry(slot, i), 1000 + i);
+        }
+
+        let mut c: BucketVec<u32> = BucketVec::new(spacing / 2);
+        let slot_offset = a.alloc_slot();
+        for i in 0..spacing {
+            a.set_slot_entry(slot_offset, i, 1000 + i);
+        }
+        let slot = a.move_slot(slot_offset, &mut c);
+        for i in 0..spacing / 2 {
+            assert_eq!(*c.get_slot_entry(slot, i), 1000 + i);
+        }
     }
 
     #[test]
@@ -456,6 +478,7 @@ mod tests {
         bucket.insert_slot_entry(slot, 0, 123456);
         assert_eq!(*bucket.get_slot_entry(slot, 0), 123456);
         assert_eq!(*bucket.get_slot_entry(slot, spacing - 1), 1);
+        assert_eq!(*bucket.get_slot_entry(slot, spacing - 2), 2);
     }
 
     #[test]
