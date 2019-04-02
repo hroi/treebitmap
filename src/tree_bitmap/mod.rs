@@ -183,7 +183,7 @@ impl<T: Sized> TreeBitmap<T> {
                 };
                 let result_index = (cur_node.internal()
                     >> (bitmap & node::END_BIT_MASK).trailing_zeros())
-                    .count_ones();
+                .count_ones();
 
                 if cur_node.internal() & (bitmap & node::END_BIT_MASK) > 0 {
                     // key already exists!

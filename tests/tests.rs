@@ -144,6 +144,25 @@ fn send() {
     thread::spawn(move || {
         let lookup_result = arc_thread.exact_match(Ipv4Addr::new(10, 0, 0, 0), 8);
         assert_eq!(lookup_result, Some(&1));
-    }).join()
-        .unwrap();
+    })
+    .join()
+    .unwrap();
+}
+
+// https://github.com/hroi/treebitmap/issues/7
+#[test]
+fn issue_7() {
+    let mut table: IpLookupTable<Ipv4Addr, ()> = IpLookupTable::new();
+
+    println!("len: {}", table.len());
+
+    table.insert("2.93.185.24".parse().unwrap(), 32, ());
+    table.insert("2.93.200.133".parse().unwrap(), 32, ());
+
+    println!("len: {}", table.len());
+
+    table.remove("2.93.185.24".parse().unwrap(), 32);
+    table.remove("2.93.200.133".parse().unwrap(), 32);
+
+    println!("len: {}", table.len());
 }

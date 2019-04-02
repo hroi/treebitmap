@@ -235,7 +235,7 @@ pub fn choose_bucket(len: u32) -> u32 {
 /// ```BucketVec```s for backing).
 ///
 /// All interaction is done with an ```AllocatorHandle```used for tracking the
-/// collection size an location.
+/// collection size and location.
 /// The location of data is computed based on the collection sized and base
 /// pointer (stored in handle).
 /// When a bucket becomes full, the contents are moved to a larger bucket. In
