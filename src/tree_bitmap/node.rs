@@ -58,11 +58,7 @@ pub static MATCH_MASKS: [u32; 16] = [MSB | MSB >> 1 | MSB >> 3 | MSB >>  7 | MSB
 pub fn gen_bitmap(prefix: u8, masklen: u32) -> u32 {
     debug_assert!(prefix < 16); // only nibbles allowed
     debug_assert!(masklen < 5);
-    // INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize]
-    let ret = unsafe {
-        // let ptr: *INTERNAL_LOOKUP_TABLE;
-        *(*INTERNAL_LOOKUP_TABLE.get_unchecked(masklen as usize)).get_unchecked(prefix as usize)
-    };
+    let ret = INTERNAL_LOOKUP_TABLE[masklen as usize][prefix as usize];
     debug_assert!(ret > 0);
     ret
 }
@@ -354,7 +350,7 @@ impl Node {
     /// Perform a match on segment/masklen.
     #[inline]
     pub fn match_segment(&self, segment: u8) -> MatchResult {
-        let match_mask = unsafe { *MATCH_MASKS.get_unchecked(segment as usize) };
+        let match_mask = MATCH_MASKS[segment as usize];
         match self.match_external(match_mask) {
             MatchResult::None => self.match_internal(match_mask),
             x => x,
@@ -363,7 +359,6 @@ impl Node {
 
     #[inline]
     pub fn match_internal(&self, match_mask: u32) -> MatchResult {
-        // let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let result_match = self.internal() & match_mask;
         if result_match > 0 {
             let result_hdl = self.result_handle();
@@ -379,7 +374,6 @@ impl Node {
 
     #[inline]
     pub fn match_external(&self, match_mask: u32) -> MatchResult {
-        // let match_mask = unsafe {MATCH_MASKS.get_unchecked(segment as usize)};
         let child_match = self.external() & match_mask;
         if child_match > 0 {
             let child_hdl = self.child_handle();
@@ -415,8 +409,6 @@ mod tests {
         // case 1
         let mut node = Node::new();
         node.make_endnode();
-        node.set_internal(MSB); // *
-        node.set_internal(MSB >> 1); // 0*
         node.set_internal(MSB >> 2); // 1*
         node.set_internal(MSB >> 4); // 01*
         node.set_internal(MSB >> 9); // 010*
@@ -427,6 +419,33 @@ mod tests {
         println!("match_segment({:04b}): {:?}", segment, match_result);
         match match_result {
             MatchResult::Match(_, _, _) => (),
+            _ => panic!("match failure"),
+        }
+
+        let segment = 0b0011;
+        let match_result = node.match_segment(segment);
+        println!("match_segment({:04b}): {:?}", segment, match_result);
+        match match_result {
+            MatchResult::None => {}
+            _ => panic!("match failure"),
+        }
+
+        let mut node = Node::new();
+        node.set_external(MSB >> 23); // 0111*
+
+        let segment = 0b0011;
+        let match_result = node.match_segment(segment);
+        println!("match_segment({:04b}): {:?}", segment, match_result);
+        match match_result {
+            MatchResult::None => {}
+            _ => panic!("match failure"),
+        }
+
+        let segment = 0b0111;
+        let match_result = node.match_segment(segment);
+        println!("match_segment({:04b}): {:?}", segment, match_result);
+        match match_result {
+            MatchResult::Chase(_, _) => {}
             _ => panic!("match failure"),
         }
     }
