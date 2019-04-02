@@ -245,7 +245,7 @@ pub fn choose_bucket(len: u32) -> u32 {
 ///
 /// All interaction is done with an ```AllocatorHandle```used for tracking the
 /// collection size and location.
-/// The location of data is computed based on the collection sized and base
+/// The location of data is computed based on the collection size and base
 /// pointer (stored in handle).
 /// When a bucket becomes full, the contents are moved to a larger bucket. In
 /// this case the allocator will update the caller's pointer.
@@ -351,17 +351,13 @@ impl<T: Sized> Allocator<T> {
     #[inline]
     pub fn get(&self, hdl: &AllocatorHandle, index: u32) -> &T {
         let bucket_index = choose_bucket(hdl.len) as usize;
-        // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe { (*self.buckets.get_unchecked(bucket_index)).get_slot_entry(hdl.offset, index) }
+        self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
     }
 
     #[inline]
     pub fn get_mut(&mut self, hdl: &AllocatorHandle, index: u32) -> &mut T {
         let bucket_index = choose_bucket(hdl.len) as usize;
-        // self.buckets[bucket_index].get_slot_entry(hdl.offset, index)
-        unsafe {
-            (*self.buckets.get_unchecked_mut(bucket_index)).get_slot_entry_mut(hdl.offset, index)
-        }
+        self.buckets[bucket_index].get_slot_entry_mut(hdl.offset, index)
     }
 
     pub fn insert(&mut self, hdl: &mut AllocatorHandle, index: u32, value: T) {
@@ -373,10 +369,10 @@ impl<T: Sized> Allocator<T> {
 
         if bucket_index != next_bucket_index {
             // move to bigger bucket
-            debug_assert!(next_bucket_index > 0);
-            let ptr: *mut BucketVec<T> = &mut self.buckets[0];
-            let dst: &mut BucketVec<T> = unsafe { &mut *ptr.offset(next_bucket_index as isize) };
-            slot = self.buckets[bucket_index].move_slot(slot, dst);
+            debug_assert!(next_bucket_index > bucket_index);
+            let (left, right) = self.buckets.split_at_mut(bucket_index + 1);
+            slot = left[bucket_index]
+                .move_slot(slot, &mut right[next_bucket_index - bucket_index - 1]);
             bucket_index = next_bucket_index;
         }
 
@@ -395,11 +391,9 @@ impl<T: Sized> Allocator<T> {
 
         if bucket_index != next_bucket_index {
             // move to smaller bucket
-            debug_assert!(next_bucket_index < self.buckets.len());
-            let buckets_base_ptr: *mut BucketVec<T> = &mut self.buckets[0];
-            let dst: &mut BucketVec<T> =
-                unsafe { &mut *buckets_base_ptr.offset(next_bucket_index as isize) };
-            slot = self.buckets[bucket_index].move_slot(slot, dst);
+            debug_assert!(next_bucket_index < bucket_index);
+            let (left, right) = self.buckets.split_at_mut(bucket_index);
+            slot = right[0].move_slot(slot, &mut left[next_bucket_index]);
         }
 
         hdl.offset = slot;
