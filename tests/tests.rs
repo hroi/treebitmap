@@ -15,12 +15,28 @@ fn remove() {
     let mut tbl = IpLookupTable::new();
     tbl.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 1);
     tbl.insert(Ipv4Addr::new(10, 0, 10, 0), 24, 2);
-    let value = tbl.remove(Ipv4Addr::new(10, 0, 10, 0), 24);
-    assert_eq!(value, Some(2));
-    let lookup_ip = Ipv4Addr::new(10, 10, 10, 10);
-    let expected_ip = Ipv4Addr::new(10, 0, 0, 0);
-    let lookup_result = tbl.longest_match(lookup_ip);
-    assert_eq!(lookup_result, Some((expected_ip, 8, &1)));
+    tbl.insert(Ipv4Addr::new(10, 0, 10, 9), 32, 3);
+
+    {
+        let lookup_ip = Ipv4Addr::new(10, 0, 10, 10);
+        let expected_ip = Ipv4Addr::new(10, 0, 10, 0);
+        let lookup_result = tbl.longest_match(lookup_ip);
+        assert_eq!(lookup_result, Some((expected_ip, 24, &2)));
+
+        let lookup_ip = Ipv4Addr::new(10, 0, 10, 9);
+        let expected_ip = Ipv4Addr::new(10, 0, 10, 9);
+        let lookup_result = tbl.longest_match(lookup_ip);
+        assert_eq!(lookup_result, Some((expected_ip, 32, &3)));
+    }
+
+    {
+        let value = tbl.remove(Ipv4Addr::new(10, 0, 10, 0), 24);
+        assert_eq!(value, Some(2));
+        let lookup_ip = Ipv4Addr::new(10, 0, 10, 10);
+        let expected_ip = Ipv4Addr::new(10, 0, 0, 0);
+        let lookup_result = tbl.longest_match(lookup_ip);
+        assert_eq!(lookup_result, Some((expected_ip, 8, &1)));
+    }
 }
 
 #[test]
@@ -49,6 +65,7 @@ fn longest_match6() {
     assert_eq!(ret.unwrap().0, google);
     let ret = tbm.longest_match(ip2);
     println!("{:?}", ret);
+    assert_eq!(ret, None);
 }
 
 #[test]
@@ -67,6 +84,9 @@ fn longest_match() {
 
     let result = tbm.longest_match(Ipv4Addr::new(100, 64, 0, 100));
     assert_eq!(result, Some((Ipv4Addr::new(100, 64, 0, 0), 24, &10064024)));
+
+    let result = tbm.longest_match(Ipv4Addr::new(100, 64, 1, 100));
+    assert_eq!(result, Some((Ipv4Addr::new(100, 64, 1, 0), 24, &10064124)));
 
     let result = tbm.longest_match(Ipv4Addr::new(200, 200, 200, 200));
     assert_eq!(result, None);
