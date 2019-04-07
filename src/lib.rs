@@ -15,6 +15,13 @@
 //! The internal datastructure is based on the Tree-bitmap algorithm described
 //! by W. Eatherton, Z. Dittia, G. Varghes.
 //!
+#![cfg_attr(feature = "alloc", no_std)]
+#![cfg_attr(feature = "alloc", feature(alloc))]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+#[cfg(feature = "alloc")]
+use core as std;
 
 use std::marker::PhantomData;
 

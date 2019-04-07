@@ -4,6 +4,10 @@
 // This file may not be copied, modified, or distributed except according to those terms.
 
 use super::allocator::AllocatorHandle;
+#[cfg(feature = "alloc")]
+use alloc::format;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 pub const INT_MASK: u32 = 0xffff_0000;
 pub const EXT_MASK: u32 = 0x0000_ffff;

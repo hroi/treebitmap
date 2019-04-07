@@ -12,3 +12,6 @@ categories = ["data-structures", "network-programming"]
 
 [badges]
 travis-ci = { repository = "hroi/treebitmap" }
+
+[features]
+alloc = []

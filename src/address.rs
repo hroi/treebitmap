@@ -4,7 +4,85 @@
 // This file may not be copied, modified, or distributed except according to those terms.
 
 use std::cmp::min;
+#[cfg(not(feature = "alloc"))]
 use std::net::{Ipv4Addr, Ipv6Addr};
+#[cfg(feature = "alloc")]
+pub mod addr {
+    #[derive(Copy, Clone)]
+    pub struct Ipv4Addr([u8; 4]);
+    impl Ipv4Addr {
+        pub fn new(a1: u8, a2: u8, a3: u8, a4: u8) -> Self {
+            Ipv4Addr([a1, a2, a3, a4])
+        }
+
+        pub fn from(num: u32) -> Self {
+            Ipv4Addr([
+                (num >> 24) as u8,
+                (num >> 16) as u8,
+                (num >> 8) as u8,
+                num as u8,
+            ])
+        }
+
+        pub fn octets(&self) -> [u8; 4] {
+            self.0
+        }
+    }
+    impl ::std::convert::From<Ipv4Addr> for u32 {
+        fn from(a: Ipv4Addr) -> u32 {
+            (a.0[0] as u32) << 24
+                | (a.0[1] as u32) << 16
+                | (a.0[2] as u32) << 8
+                | (a.0[3] as u32) << 0
+        }
+    }
+
+    #[derive(Copy, Clone)]
+    pub struct Ipv6Addr([u8; 16]);
+
+    impl Ipv6Addr {
+        pub fn new(a1: u16, a2: u16, a3: u16, a4: u16, a5: u16, a6: u16, a7: u16, a8: u16) -> Self {
+            Ipv6Addr([
+                (a1 >> 8) as u8,
+                a1 as u8,
+                (a2 >> 8) as u8,
+                a2 as u8,
+                (a3 >> 8) as u8,
+                a3 as u8,
+                (a4 >> 8) as u8,
+                a4 as u8,
+                (a5 >> 8) as u8,
+                a5 as u8,
+                (a6 >> 8) as u8,
+                a6 as u8,
+                (a7 >> 8) as u8,
+                a7 as u8,
+                (a8 >> 8) as u8,
+                a8 as u8,
+            ])
+        }
+
+        pub fn octets(&self) -> [u8; 16] {
+            self.0
+        }
+
+        pub fn segments(&self) -> [u16; 8] {
+            [
+                (self.0[0] as u16) << 8 | (self.0[1] as u16),
+                (self.0[2] as u16) << 8 | (self.0[3] as u16),
+                (self.0[4] as u16) << 8 | (self.0[5] as u16),
+                (self.0[6] as u16) << 8 | (self.0[7] as u16),
+                (self.0[8] as u16) << 8 | (self.0[9] as u16),
+                (self.0[10] as u16) << 8 | (self.0[11] as u16),
+                (self.0[12] as u16) << 8 | (self.0[13] as u16),
+                (self.0[14] as u16) << 8 | (self.0[15] as u16),
+            ]
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+use self::addr::*;
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address: Copy {
