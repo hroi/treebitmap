@@ -28,7 +28,7 @@ use std::marker::PhantomData;
 mod tree_bitmap;
 use tree_bitmap::TreeBitmap;
 
-mod address;
+pub mod address;
 use address::Address;
 
 #[cfg(feature = "alloc")]
