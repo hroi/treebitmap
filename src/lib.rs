@@ -78,6 +78,10 @@ where
     /// Insert a value for the prefix designated by ip and masklen. If prefix
     /// existed previously, the old value is returned.
     ///
+    /// # Panics
+    ///
+    /// Panics if prefix has bits set to the right of mask.
+    ///
     /// # Examples
     ///
     /// ```
