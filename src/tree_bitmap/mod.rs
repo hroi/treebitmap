@@ -3,6 +3,10 @@
 // Licensed under the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>.
 // This file may not be copied, modified, or distributed except according to those terms.
 
+#[cfg(feature = "alloc")]
+use alloc::vec;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use std::cmp;
 
 mod allocator;
@@ -107,15 +111,13 @@ impl<T: Sized> TreeBitmap<T> {
 
         for nibble in nibbles {
             let cur_node = *self.trienodes.get(&cur_hdl, cur_index);
-            let match_mask = unsafe { *node::MATCH_MASKS.get_unchecked(*nibble as usize) };
+            let match_mask = node::MATCH_MASKS[*nibble as usize];
 
             if let MatchResult::Match(result_hdl, result_index, matching_bit_index) =
                 cur_node.match_internal(match_mask)
             {
                 bits_matched = bits_searched;
-                unsafe {
-                    bits_matched += *node::BIT_MATCH.get_unchecked(matching_bit_index as usize);
-                }
+                bits_matched += node::BIT_MATCH[matching_bit_index as usize];
                 best_match = Some((result_hdl, result_index));
             }
 
@@ -183,7 +185,7 @@ impl<T: Sized> TreeBitmap<T> {
                 };
                 let result_index = (cur_node.internal()
                     >> (bitmap & node::END_BIT_MASK).trailing_zeros())
-                    .count_ones();
+                .count_ones();
 
                 if cur_node.internal() & (bitmap & node::END_BIT_MASK) > 0 {
                     // key already exists!
@@ -320,11 +322,13 @@ impl<T: Sized> TreeBitmap<T> {
                 child_node.make_endnode();
             }
             if child_node.is_empty() {
-                self.trienodes.remove(&mut child_node_hdl, 0);
-                self.trienodes.free(&mut child_node_hdl);
-                self.trienodes.set(&child_node_hdl, 0, Node::new());
+                self.trienodes.remove(&mut child_node_hdl, index);
                 node.unset_external(bitmap);
-                node.child_ptr = 0;
+                if child_node_hdl.len == 0 {
+                    // no child nodes
+                    self.trienodes.free(&mut child_node_hdl);
+                }
+                node.child_ptr = child_node_hdl.offset;
             } else {
                 node.child_ptr = child_node_hdl.offset;
                 self.trienodes.set(&child_node_hdl, index, child_node);

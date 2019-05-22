@@ -4,8 +4,85 @@
 // This file may not be copied, modified, or distributed except according to those terms.
 
 use std::cmp::min;
-use std::mem;
+#[cfg(not(feature = "alloc"))]
 use std::net::{Ipv4Addr, Ipv6Addr};
+#[cfg(feature = "alloc")]
+pub mod addr {
+    #[derive(Copy, Clone)]
+    pub struct Ipv4Addr([u8; 4]);
+    impl Ipv4Addr {
+        pub fn new(a1: u8, a2: u8, a3: u8, a4: u8) -> Self {
+            Ipv4Addr([a1, a2, a3, a4])
+        }
+
+        pub fn from(num: u32) -> Self {
+            Ipv4Addr([
+                (num >> 24) as u8,
+                (num >> 16) as u8,
+                (num >> 8) as u8,
+                num as u8,
+            ])
+        }
+
+        pub fn octets(&self) -> [u8; 4] {
+            self.0
+        }
+    }
+    impl ::std::convert::From<Ipv4Addr> for u32 {
+        fn from(a: Ipv4Addr) -> u32 {
+            (a.0[0] as u32) << 24
+                | (a.0[1] as u32) << 16
+                | (a.0[2] as u32) << 8
+                | (a.0[3] as u32) << 0
+        }
+    }
+
+    #[derive(Copy, Clone)]
+    pub struct Ipv6Addr([u8; 16]);
+
+    impl Ipv6Addr {
+        pub fn new(a1: u16, a2: u16, a3: u16, a4: u16, a5: u16, a6: u16, a7: u16, a8: u16) -> Self {
+            Ipv6Addr([
+                (a1 >> 8) as u8,
+                a1 as u8,
+                (a2 >> 8) as u8,
+                a2 as u8,
+                (a3 >> 8) as u8,
+                a3 as u8,
+                (a4 >> 8) as u8,
+                a4 as u8,
+                (a5 >> 8) as u8,
+                a5 as u8,
+                (a6 >> 8) as u8,
+                a6 as u8,
+                (a7 >> 8) as u8,
+                a7 as u8,
+                (a8 >> 8) as u8,
+                a8 as u8,
+            ])
+        }
+
+        pub fn octets(&self) -> [u8; 16] {
+            self.0
+        }
+
+        pub fn segments(&self) -> [u16; 8] {
+            [
+                (self.0[0] as u16) << 8 | (self.0[1] as u16),
+                (self.0[2] as u16) << 8 | (self.0[3] as u16),
+                (self.0[4] as u16) << 8 | (self.0[5] as u16),
+                (self.0[6] as u16) << 8 | (self.0[7] as u16),
+                (self.0[8] as u16) << 8 | (self.0[9] as u16),
+                (self.0[10] as u16) << 8 | (self.0[11] as u16),
+                (self.0[12] as u16) << 8 | (self.0[13] as u16),
+                (self.0[14] as u16) << 8 | (self.0[15] as u16),
+            ]
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+use self::addr::*;
 
 /// Address trait provides methods required for storing in TreeBitmap trie datastructure.
 pub trait Address: Copy {
@@ -22,8 +99,8 @@ impl Address for Ipv4Addr {
     type Nibbles = [u8; 8];
 
     fn nibbles(self) -> Self::Nibbles {
-        let mut ret: Self::Nibbles = unsafe { mem::uninitialized() };
-        let bytes: [u8; 4] = unsafe { mem::transmute(self) };
+        let mut ret: Self::Nibbles = [0; 8];
+        let bytes: [u8; 4] = self.octets();
         for (i, byte) in bytes.iter().enumerate() {
             ret[i * 2] = byte >> 4;
             ret[i * 2 + 1] = byte & 0xf;
@@ -44,7 +121,7 @@ impl Address for Ipv4Addr {
                 }
             }
         }
-        unsafe { mem::transmute(ret) }
+        Self::new(ret[0], ret[1], ret[2], ret[3])
     }
 
     fn mask(self, masklen: u32) -> Self {
@@ -62,8 +139,8 @@ impl Address for Ipv6Addr {
     type Nibbles = [u8; 32];
 
     fn nibbles(self) -> Self::Nibbles {
-        let mut ret: Self::Nibbles = unsafe { mem::uninitialized() };
-        let bytes: [u8; 16] = unsafe { mem::transmute(self) };
+        let mut ret: Self::Nibbles = [0; 32];
+        let bytes: [u8; 16] = self.octets();
         for (i, byte) in bytes.iter().enumerate() {
             ret[i * 2] = byte >> 4;
             ret[i * 2 + 1] = byte & 0xf;
@@ -72,37 +149,41 @@ impl Address for Ipv6Addr {
     }
 
     fn from_nibbles(nibbles: &[u8]) -> Self {
-        let mut ret: [u8; 16] = [0; 16];
-        let lim = min(ret.len() * 2, nibbles.len());
+        let mut ret: [u16; 8] = [0; 8];
+        let lim = min(ret.len() * 4, nibbles.len());
         for (i, nibble) in nibbles.iter().enumerate().take(lim) {
-            match i % 2 {
+            match i % 4 {
                 0 => {
-                    ret[i / 2] = *nibble << 4;
+                    ret[i / 4] |= (*nibble as u16) << 12;
+                }
+                1 => {
+                    ret[i / 4] |= (*nibble as u16) << 8;
+                }
+                2 => {
+                    ret[i / 4] |= (*nibble as u16) << 4;
                 }
                 _ => {
-                    ret[i / 2] |= *nibble;
+                    ret[i / 4] |= *nibble as u16;
                 }
             }
         }
-        unsafe { mem::transmute(ret) }
+        Self::new(
+            ret[0], ret[1], ret[2], ret[3], ret[4], ret[5], ret[6], ret[7],
+        )
     }
 
     fn mask(self, masklen: u32) -> Self {
         debug_assert!(masklen <= 128);
-        let (first, last): (u64, u64) = unsafe { mem::transmute(self) };
-        if masklen <= 64 {
-            let masked = match masklen {
-                0 => 0,
-                n => first.to_be() & (!0 << (64 - n)),
-            };
-            unsafe { mem::transmute((masked.to_be(), 0u64)) }
-        } else {
-            let masked = match masklen {
-                64 => 0,
-                n => last.to_be() & (!0 << (128 - n)),
-            };
-            unsafe { mem::transmute((first, masked.to_be())) }
+        let mut ret = self.segments();
+        for i in ((masklen + 15) / 16)..8 {
+            ret[i as usize] = 0;
         }
+        if masklen % 16 != 0 {
+            ret[masklen as usize / 16] &= !0 << (16 - (masklen % 16));
+        }
+        Self::new(
+            ret[0], ret[1], ret[2], ret[3], ret[4], ret[5], ret[6], ret[7],
+        )
     }
 }
 
@@ -115,7 +196,10 @@ mod tests {
     #[test]
     fn address_ipv4_mask() {
         let ip = Ipv4Addr::new(1, 2, 3, 4);
-        assert_eq!(ip.mask(24), Ipv4Addr::new(1, 2, 3, 0))
+        assert_eq!(ip.mask(0), Ipv4Addr::new(0, 0, 0, 0));
+        assert_eq!(ip.mask(24), Ipv4Addr::new(1, 2, 3, 0));
+        assert_eq!(ip.mask(23), Ipv4Addr::new(1, 2, 2, 0));
+        assert_eq!(ip.mask(32), Ipv4Addr::new(1, 2, 3, 4));
     }
 
     #[test]
@@ -123,8 +207,20 @@ mod tests {
         let ip = Ipv6Addr::from_str("2001:db8:aaaa:bbbb:cccc:dddd:eeee:ffff").unwrap();
         let expected1 = Ipv6Addr::from_str("2001:db8:aaaa::").unwrap();
         let expected2 = Ipv6Addr::from_str("2001:db8:aaaa:bbbb:cccc:dddd::").unwrap();
+        let expected3 = Ipv6Addr::from_str("::").unwrap();
+        let expected4 = Ipv6Addr::from_str("2000::").unwrap();
+        assert_ne!(ip.mask(46), expected1);
+        assert_eq!(ip.mask(47), expected1);
         assert_eq!(ip.mask(48), expected1);
+        assert_ne!(ip.mask(49), expected1);
         assert_eq!(ip.mask(96), expected2);
+        assert_eq!(ip.mask(0), expected3);
+        assert_ne!(ip.mask(2), expected4);
+        assert_eq!(ip.mask(3), expected4);
+        assert_eq!(ip.mask(4), expected4);
+        assert_eq!(ip.mask(15), expected4);
+        assert_ne!(ip.mask(16), expected4);
+        assert_eq!(ip.mask(128), ip);
     }
 
     #[test]
