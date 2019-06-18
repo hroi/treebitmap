@@ -603,11 +603,13 @@ mod tests {
         tbm.insert(nibbles_a, mask_a, "foo");
         tbm.insert(nibbles_b, mask_b, "bar");
         {
-            let matches = tbm.matches(nibbles_b);
-            assert_eq!(
-                true,
-                matches.contains(&(mask_a, &"foo")) && matches.contains(&(mask_b, &"bar"))
-            );
+            {
+                let matches = tbm.matches(nibbles_b);
+                assert_eq!(
+                    true,
+                    matches.contains(&(mask_a, &"foo")) && matches.contains(&(mask_b, &"bar"))
+                );
+            }
             let value = tbm.remove(nibbles_b, mask_b);
             assert_eq!(value, Some("bar"));
             let lookup_result = tbm.longest_match(nibbles_b);
