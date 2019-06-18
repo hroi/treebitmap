@@ -146,6 +146,45 @@ impl<T: Sized> TreeBitmap<T> {
         }
     }
 
+    /// All matches lookup of ```nibbles```. Returns of Vec of tuples, each containing bits matched as u32 and a reference to T.
+    pub fn matches(&self, nibbles: &[u8]) -> Vec<(u32, &T)> {
+        let mut cur_hdl = self.root_handle();
+        let mut cur_index = 0;
+        let mut bits_searched = 0;
+        let mut matches: Vec<(u32, &T)> = Vec::new();
+
+        for nibble in nibbles {
+            let cur_node = *self.trienodes.get(&cur_hdl, cur_index);
+            let match_mask = node::MATCH_MASKS[*nibble as usize];
+
+            if let MatchResult::Match(result_hdl, result_index, matching_bit_index) =
+                cur_node.match_internal(match_mask)
+            {
+                let mut bits_matched = bits_searched;
+                bits_matched += node::BIT_MATCH[matching_bit_index as usize];
+                matches.push((bits_matched, self.results.get(&result_hdl, result_index)));
+            }
+
+            if cur_node.is_endnode() {
+                break;
+            }
+            match cur_node.match_external(match_mask) {
+                MatchResult::Chase(child_hdl, child_index) => {
+                    bits_searched += 4;
+                    cur_hdl = child_hdl;
+                    cur_index = child_index;
+                    continue;
+                }
+                MatchResult::None => {
+                    break;
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        matches
+    }
+
     pub fn insert(&mut self, nibbles: &[u8], masklen: u32, value: T) -> Option<T> {
         let mut cur_hdl = self.root_handle();
         let mut cur_index = 0;
@@ -564,6 +603,11 @@ mod tests {
         tbm.insert(nibbles_a, mask_a, "foo");
         tbm.insert(nibbles_b, mask_b, "bar");
         {
+            let matches = tbm.matches(nibbles_b);
+            assert_eq!(
+                true,
+                matches.contains(&(mask_a, &"foo")) && matches.contains(&(mask_b, &"bar"))
+            );
             let value = tbm.remove(nibbles_b, mask_b);
             assert_eq!(value, Some("bar"));
             let lookup_result = tbm.longest_match(nibbles_b);

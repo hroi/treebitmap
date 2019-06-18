@@ -69,6 +69,20 @@ fn longest_match6() {
 }
 
 #[test]
+fn matches6() {
+    let mut tbm = IpLookupTable::new();
+    let ip = Ipv6Addr::from_str("2a00::0").unwrap();
+    tbm.insert(ip, 32, 1);
+    tbm.insert(ip, 24, 1);
+    tbm.insert(ip, 16, 2);
+    assert_eq!(
+        2,
+        tbm.matches(Ipv6Addr::from_str("2a00:0099::0").unwrap())
+            .len()
+    );
+}
+
+#[test]
 fn longest_match() {
     let mut tbm = IpLookupTable::new();
     tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 100002);
@@ -90,6 +104,14 @@ fn longest_match() {
 
     let result = tbm.longest_match(Ipv4Addr::new(200, 200, 200, 200));
     assert_eq!(result, None);
+}
+
+#[test]
+fn matches() {
+    let mut tbm = IpLookupTable::new();
+    tbm.insert(Ipv4Addr::new(10, 0, 0, 0), 8, 1);
+    tbm.insert(Ipv4Addr::new(10, 1, 0, 0), 16, 2);
+    assert_eq!(2, tbm.matches(Ipv4Addr::new(10, 1, 0, 30)).len());
 }
 
 #[test]
