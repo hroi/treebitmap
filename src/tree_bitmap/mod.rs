@@ -109,7 +109,16 @@ impl<T: Sized> TreeBitmap<T> {
         let mut bits_searched = 0;
         let mut best_match: Option<(AllocatorHandle, u32)> = None; // result handle + index
 
-        for nibble in nibbles {
+        let mut loop_count = 0;
+        loop {
+            let nibble = if loop_count < nibbles.len() {
+                nibbles[loop_count]
+            } else {
+                0
+            };
+            loop_count += 1;
+
+            let nibble = &nibble;
             let cur_node = *self.trienodes.get(&cur_hdl, cur_index);
             let match_mask = node::MATCH_MASKS[*nibble as usize];
 
@@ -256,7 +265,16 @@ impl<T: Sized> TreeBitmap<T> {
         let mut cur_index = 0;
         let mut bits_left = masklen;
 
-        for nibble in nibbles {
+        let mut loop_count = 0;
+        loop {
+            let nibble = if loop_count < nibbles.len() {
+                nibbles[loop_count]
+            } else {
+                0
+            };
+            loop_count += 1;
+
+            let nibble = &nibble;
             let cur_node = self.trienodes.get(&cur_hdl, cur_index);
             let bitmap = node::gen_bitmap(*nibble, cmp::min(bits_left, 4)) & node::END_BIT_MASK;
             let reached_final_node = bits_left < 4 || (cur_node.is_endnode() && bits_left == 4);
@@ -279,7 +297,6 @@ impl<T: Sized> TreeBitmap<T> {
                 _ => return None,
             }
         }
-        None
     }
 
     /// Remove prefix. Returns existing value if the prefix previously existed.
@@ -294,7 +311,7 @@ impl<T: Sized> TreeBitmap<T> {
 
     // remove child and result from node
     fn remove_child(&mut self, node: &mut Node, nibbles: &[u8], masklen: u32) -> Option<T> {
-        let nibble = nibbles[0];
+        let nibble = if masklen > 0 { nibbles[0] } else { 0 };
         let bitmap = node::gen_bitmap(nibble, cmp::min(masklen, 4)) & node::END_BIT_MASK;
         let reached_final_node = masklen < 4 || (node.is_endnode() && masklen == 4);
 
