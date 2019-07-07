@@ -455,7 +455,7 @@ mod tests {
             bucket.set_slot_entry(slot, i, 1000 + i);
         }
         for i in 0..spacing {
-            let mut x = bucket.get_slot_entry_mut(slot, i);
+            let x = bucket.get_slot_entry_mut(slot, i);
             *x += 1;
         }
         for i in 0..spacing {
@@ -542,7 +542,7 @@ mod tests {
         }
 
         for i in 0..32 {
-            let mut x = alloc.get_mut(&hdl, i);
+            let x = alloc.get_mut(&hdl, i);
             *x += 1;
         }
 

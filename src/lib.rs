@@ -144,6 +144,28 @@ where
         self.inner.exact_match(&ip.nibbles().as_ref(), masklen)
     }
 
+    /// Perform exact match lookup of `ip`/`masklen` and return the
+    /// value in mutable form.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use treebitmap::IpLookupTable;
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let mut table = IpLookupTable::new();
+    /// let prefix = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0);
+    /// let masklen = 32;
+    /// table.insert(prefix, masklen, "foo");
+    ///
+    /// assert_eq!(table.exact_match_mut(prefix, masklen), Some(&mut "foo"));
+    /// // differing mask
+    /// assert_eq!(table.exact_match_mut(prefix, 48), None);
+    /// ```
+    pub fn exact_match_mut(&mut self, ip: A, masklen: u32) -> Option<&mut T> {
+        self.inner.exact_match_mut(&ip.nibbles().as_ref(), masklen)
+    }
+
     /// Perform longest match lookup of `ip` and return the best matching
     /// prefix, designated by ip, masklen, along with its value.
     ///
@@ -174,6 +196,39 @@ where
             Some((bits_matched, value)) => Some((ip.mask(bits_matched), bits_matched, value)),
             None => None,
         }
+    }
+
+    /// Perform match lookup of `ip` and return the all matching
+    /// prefixes, designated by ip, masklen, along with its value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use treebitmap::IpLookupTable;
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let mut table = IpLookupTable::new();
+    /// let less_specific = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0);
+    /// let more_specific = Ipv6Addr::new(0x2001, 0xdb8, 0xdead, 0, 0, 0, 0, 0);
+    /// table.insert(less_specific, 32, "foo");
+    /// table.insert(more_specific, 48, "bar");
+    ///
+    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xdead, 0xbeef,
+    ///                              0xcafe, 0xbabe, 0, 1);
+    /// let matches = table.matches(lookupip);
+    /// assert_eq!(matches.len(), 2);
+    ///
+    /// let lookupip = Ipv6Addr::new(0x2001, 0xdb8, 0xcafe, 0xf00,
+    ///                              0xf00, 0xf00, 0, 1);
+    /// let matches = table.matches(lookupip);
+    /// assert_eq!(matches.len(), 1);
+    /// ```
+    pub fn matches(&self, ip: A) -> Vec<(A, u32, &T)> {
+        self.inner
+            .matches(&ip.nibbles().as_ref())
+            .iter()
+            .map(|(bits_matched, value)| (ip.mask(*bits_matched), *bits_matched, *value))
+            .collect()
     }
 
     /// Returns iterator over prefixes and values.
