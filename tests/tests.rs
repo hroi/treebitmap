@@ -186,3 +186,26 @@ fn issue_7() {
 
     println!("len: {}", table.len());
 }
+
+// https://github.com/hroi/treebitmap/issues/13
+#[test]
+fn issue_13() {
+    const ADDR: Ipv4Addr = Ipv4Addr::new(49, 255, 11, 17);
+    let mut table = IpLookupTable::new();
+
+    println!("insert 28");
+    table.insert(Ipv4Addr::new(49, 255, 11, 16), 28, ());
+    assert_eq!(
+        table.exact_match(Ipv4Addr::new(49, 255, 11, 16), 28),
+        Some(&())
+    );
+    println!("insert 32");
+    table.insert(ADDR, 32, ());
+
+    println!("match 32");
+    assert_eq!(table.exact_match(ADDR, 32), Some(&()));
+    assert!(table.longest_match(ADDR).is_some());
+
+    let v = table.remove(ADDR, 32);
+    println!("removed: {:?}", v);
+}
