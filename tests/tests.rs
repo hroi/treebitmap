@@ -6,6 +6,8 @@
 
 extern crate treebitmap;
 
+mod rand_test;
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use treebitmap::*;

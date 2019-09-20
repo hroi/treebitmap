@@ -10,6 +10,9 @@ readme = "README.md"
 keywords = ["ip", "networking", "trie", "cidr"]
 categories = ["data-structures", "network-programming"]
 
+[dev-dependencies]
+rand = "0.7.2"
+
 [badges]
 travis-ci = { repository = "hroi/treebitmap" }
 
