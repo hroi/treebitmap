@@ -190,10 +190,7 @@ impl<T: Sized> BucketVec<T> {
                 (self.spacing - index - 1) as usize,
             );
             if cfg!(debug_assertions) {
-                ptr::write(
-                    dst_ptr.offset((self.spacing - index - 1) as isize),
-                    mem::zeroed(),
-                );
+                ptr::write_bytes(dst_ptr.offset((self.spacing - index - 1) as isize), 0, 1);
             }
         }
         ret
